@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hate Comment Detection — Presentation</title>
+  <style>
+    :root{
+      --bg:#0b1220; --card:#0f1724; --accent:#06b6d4; --accent2:#7c3aed; --muted:#94a3b8; --text:#e6eef8
+    }
+    body{margin:0;font-family:Inter, 'Segoe UI', Roboto, Arial, sans-serif;background:linear-gradient(180deg,#041028 0%,#071226 100%);color:var(--text)}
+    .deck{max-width:1100px;margin:40px auto;padding:28px}
+    .slide{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:12px;padding:28px;margin-bottom:22px;box-shadow:0 10px 30px rgba(2,6,23,0.6);}
+    h1{margin:0;font-size:28px}
+    h2{margin:6px 0 12px;color:var(--accent)}
+    p{color:var(--text);line-height:1.5}
+    .muted{color:var(--muted)}
+    .grid{display:flex;gap:18px;flex-wrap:wrap}
+    .card{flex:1;min-width:260px;background:rgba(255,255,255,0.02);padding:16px;border-radius:10px;border:1px solid rgba(255,255,255,0.03)}
+    pre{background:#020617;color:#bcd4e6;padding:12px;border-radius:8px;overflow:auto}
+    .diagrams img{max-width:100%;height:auto;border-radius:8px;box-shadow:0 8px 20px rgba(2,6,23,0.6)}
+    .callout{background:linear-gradient(90deg,var(--accent),var(--accent2));padding:12px;border-radius:10px;color:#021426;font-weight:600}
+    footer{font-size:13px;color:var(--muted);margin-top:18px;text-align:center}
+    .columns{display:flex;gap:18px}
+    .left{flex:0 0 60%}
+    .right{flex:1}
+  </style>
+</head>
+<body>
+  <div class="deck">
+
+    <div class="slide">
+      <h1>Hate Comment Detection</h1>
+      <div class="muted">Project status: Production-ready inference API with fine-tuned DistilBERT — December 11, 2025</div>
+      <div style="margin-top:14px" class="grid">
+        <div class="card">
+          <h2>What is the project</h2>
+          <p>This project detects hateful content in short text (tweets / comments). It classifies input into three labels: <strong>Hate Speech</strong>, <strong>Offensive Language</strong>, and <strong>Neither/Clean</strong>. The model is DistilBERT fine-tuned with PyTorch and exposed via a FastAPI inference server.</p>
+        </div>
+        <div class="card">
+          <h2>Quick Stats</h2>
+          <p>Accuracy: <strong>97.03%</strong><br>Precision: <strong>0.9709</strong><br>F1-score: <strong>0.9701</strong><br>Processed samples: <strong>57,546</strong></p>
+        </div>
+      </div>
+    </div>
+
+    <div class="slide">
+      <h2>What we have done so far</h2>
+      <div class="columns">
+        <div class="left">
+          <ul>
+            <li><strong>Data ingestion</strong> — Loaded `data/archive/labeled_data.csv` (24,783 samples).</li>
+            <li><strong>Preprocessing</strong> — Implemented advanced text cleaning: contraction expansion, emoji removal, URL & mention removal, repeated-char normalization. (See `src/preprocess_dataset.py`)</li>
+            <li><strong>Class balancing</strong> — Oversampled to produce balanced dataset (19.2K per class), final splits: train 46,036 / val 5,754 / test 5,756.</li>
+            <li><strong>Training</strong> — Fine-tuned DistilBERT using PyTorch (`src/train_pytorch.py`); hyperparameters: epochs=2, lr=2e-5, batch_size=16.</li>
+            <li><strong>Analysis</strong> — Generated statistical reports and visualizations (`src/statistical_analysis.py`), including class distribution, token stats, and outlier detection.</li>
+            <li><strong>API</strong> — Built FastAPI server (`src/api.py`) with `/health`, `/predict`, and `/predict-batch` endpoints and startup script (`scripts/run_api.py`).</li>
+            <li><strong>Testing & Docs</strong> — Test suite `scripts/test_api.py`, `QUICKSTART.md`, and full API docs.</li>
+          </ul>
+        </div>
+        <div class="right">
+          <div class="card callout">Key file locations:
+            <div class="muted" style="margin-top:8px">`src/preprocess_dataset.py`, `src/train_pytorch.py`, `src/inference.py`, `src/api.py`, `models/hate-detection-balanced/`, `data/processed/`</div>
+          </div>
+          <div style="height:12px"></div>
+          <div class="card">
+            <h3>Metrics</h3>
+            <p><strong>Accuracy:</strong> 97.03%<br><strong>F1:</strong> 0.9701<br><strong>Precision:</strong> 0.9709</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="slide">
+      <h2>Detailed: Preprocessing</h2>
+      <div class="grid">
+        <div class="card">
+          <h3>Steps implemented</h3>
+          <ul>
+            <li>Contraction expansion ("don't" → "do not")</li>
+            <li>Lowercase, strip, punctuation normalization</li>
+            <li>Remove URLs, @mentions, emojis, non-printable</li>
+            <li>Normalize repeated letters ("soooo" → "soo")</li>
+            <li>Optional stopword removal, token length checks</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Outputs</h3>
+          <p>Preprocessed CSV/JSONL saved under `data/processed/` with train/val/test splits. Tokenization prep for Hugging Face tokenizer (max_length=128).</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="slide">
+      <h2>Diagrams — Architecture</h2>
+      <div class="diagrams">
+          <!-- Inlined architecture.svg -->
+          <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="500" viewBox="0 0 1200 500">
+            <style>
+              .bg { fill: #0f172a; }
+              .title { fill: #fff; font-family: Arial, Helvetica, sans-serif; font-size: 20px; }
+              .box { fill: #0ea5a6; stroke: #083344; stroke-width: 2; rx: 8; }
+              .box2 { fill: #7c3aed; stroke: #3e185f; stroke-width: 2; rx: 8; }
+              .text { fill: #fff; font-family: Arial, Helvetica, sans-serif; font-size: 14px; }
+              .muted { fill: #cbd5e1; font-size:12px }
+              .arrow { stroke: #94a3b8; stroke-width: 2; marker-end: url(#arrowhead); }
+            </style>
+
+            <rect class="bg" x="0" y="0" width="1200" height="500" rx="12"/>
+            <text x="40" y="36" class="title">System Architecture — Hate Comment Detection</text>
+            <text x="40" y="60" class="muted">Overview: Tokenization → Model (DistilBERT) → API → Client</text>
+
+            <defs>
+              <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+                <polygon points="0 0, 10 3.5, 0 7" fill="#94a3b8" />
+              </marker>
+            </defs>
+
+            <!-- Client -->
+            <g id="client">
+              <rect class="box" x="40" y="100" width="220" height="100" />
+              <text class="text" x="70" y="140">Client / App</text>
+              <text class="muted" x="70" y="160">(Browser, Mobile, Service)</text>
+            </g>
+
+            <!-- API -->
+            <g id="api">
+              <rect class="box2" x="420" y="80" width="320" height="140" />
+              <text class="text" x="520" y="110">FastAPI Server</text>
+              <text class="muted" x="470" y="132">/health, /predict, /predict-batch</text>
+            </g>
+
+            <!-- Model -->
+            <g id="model">
+              <rect class="box" x="820" y="100" width="280" height="160" />
+              <text class="text" x="870" y="140">Model: DistilBERT</text>
+              <text class="muted" x="870" y="162">Fine-tuned (3-class)</text>
+              <text class="muted" x="870" y="182">Path: models/hate-detection-balanced</text>
+            </g>
+
+            <!-- Arrows -->
+            <line class="arrow" x1="260" y1="150" x2="420" y2="150" />
+            <line class="arrow" x1="740" y1="150" x2="820" y2="150" />
+
+            <!-- Tokenizer / Preprocessing box -->
+            <g id="preproc">
+              <rect class="box" x="420" y="250" width="240" height="90" />
+              <text class="text" x="450" y="285">Tokenizer & Preprocessing</text>
+              <text class="muted" x="450" y="305">(src/preprocess_dataset.py)</text>
+            </g>
+
+            <line class="arrow" x1="660" y1="200" x2="660" y2="250" />
+            <line class="arrow" x1="660" y1="295" x2="820" y2="295" />
+
+            <!-- DB / Storage -->
+            <g id="storage">
+              <rect x="40" y="240" width="300" height="120" rx="8" fill="#94a3b8" opacity="0.12" stroke="#94a3b8"/>
+              <text class="muted" x="60" y="270">Data Storage</text>
+              <text class="muted" x="60" y="290">- data/archive/</text>
+              <text class="muted" x="60" y="310">- data/processed/</text>
+              <text class="muted" x="60" y="330">- models/</text>
+            </g>
+
+            <!-- Notes -->
+            <text class="muted" x="40" y="430">Legend: teal = service, purple = API layer, arrows = data flow</text>
+          </svg>
+        </div>
+      <footer>Architecture: Client → FastAPI → Tokenizer → Model (DistilBERT) → Response</footer>
+    </div>
+
+    <div class="slide">
+      <h2>Diagrams — Data Pipeline</h2>
+      <div class="diagrams">
+        <!-- Inlined data_pipeline.svg -->
+        <svg xmlns="http://www.w3.org/2000/svg" width="1000" height="420" viewBox="0 0 1000 420">
+          <style>
+            .bg { fill: #071021; }
+            .title { fill: #fff; font-family: 'Segoe UI', Arial; font-size: 18px; }
+            .stage { fill: #06b6d4; stroke: #02303a; stroke-width:2; rx:10 }
+            .stage2 { fill: #6366f1; stroke: #2a2a7a; stroke-width:2; rx:10 }
+            .text { fill: #fff; font-size:13px; font-family: 'Segoe UI', Arial; }
+            .muted { fill: #94a3b8; font-size:12px }
+            .arrow { stroke: #94a3b8; stroke-width:2; marker-end: url(#a); }
+          </style>
+          <rect class="bg" width="1000" height="420" rx="8"/>
+          <text x="30" y="36" class="title">Data Pipeline — Preprocess & Balance</text>
+
+          <defs>
+            <marker id="a" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+              <polygon points="0 0, 10 3.5, 0 7" fill="#94a3b8" />
+            </marker>
+          </defs>
+
+          <!-- Raw data -->
+          <g>
+            <rect class="stage" x="30" y="80" width="220" height="80"/>
+            <text class="text" x="50" y="110">Raw Data</text>
+            <text class="muted" x="50" y="130">data/archive/labeled_data.csv</text>
+          </g>
+
+          <!-- Clean -->
+          <g>
+            <rect class="stage" x="290" y="60" width="220" height="120"/>
+            <text class="text" x="330" y="100">Cleaning & Normalization</text>
+            <text class="muted" x="330" y="120">expand contractions, remove URLs, emojis</text>
+          </g>
+
+          <!-- Tokenize -->
+          <g>
+            <rect class="stage2" x="570" y="60" width="220" height="120"/>
+            <text class="text" x="600" y="100">Tokenization</text>
+            <text class="muted" x="600" y="120">Hugging Face tokenizer (max_len=128)</text>
+          </g>
+
+          <!-- Balance -->
+          <g>
+            <rect class="stage" x="290" y="220" width="220" height="80"/>
+            <text class="text" x="320" y="250">Class Balancing</text>
+            <text class="muted" x="320" y="270">Oversample minority classes → 19.2K each</text>
+          </g>
+
+          <!-- Export -->
+          <g>
+            <rect class="stage2" x="570" y="220" width="220" height="80"/>
+            <text class="text" x="600" y="250">Export Splits</text>
+            <text class="muted" x="600" y="270">train/validation/test CSV & JSONL</text>
+          </g>
+
+          <!-- Arrows -->
+          <line class="arrow" x1="250" y1="120" x2="290" y2="120"/>
+          <line class="arrow" x1="510" y1="120" x2="570" y2="120"/>
+          <line class="arrow" x1="400" y1="180" x2="400" y2="220"/>
+          <line class="arrow" x1="510" y1="260" x2="570" y2="260"/>
+
+          <!-- Summary -->
+          <text class="muted" x="30" y="340">Key files: src/preprocess_dataset.py, src/load_csv_dataset.py</text>
+          <text class="muted" x="30" y="360">Outcome: Balanced dataset — 57,546 samples (46K train / 5.7K val / 5.7K test)</text>
+        </svg>
+      </div>
+      <footer>Data Pipeline: raw → clean → tokenize → balance → export splits</footer>
+    </div>
+
+    <div class="slide">
+      <h2>What errors we faced when API was not opening</h2>
+      <div class="card">
+        <ul>
+          <li><strong>Import errors</strong> — "ModuleNotFoundError: No module named 'src'" or "No module named 'inference'" when running `python src/api.py` vs `python -m uvicorn src.api:app` (Python path differences).</li>
+          <li><strong>Server started then shut down</strong> — Observed Uvicorn started but application shutdown immediately. Root causes: reloader spawning child processes, permission/socket issues, or a previous process holding port 8000.</li>
+          <li><strong>Socket permission error</strong> — "[WinError 10013]" from attempting to bind to the port (another process or permissions restriction).</li>
+        </ul>
+        <p class="muted">Resolution steps taken (documented): checked process list, used `Stop-Process -Id <pid>`, restarted with `python -m uvicorn src.api:app --host 127.0.0.1 --port 8000`, fixed imports to use package-style imports, and ensured the correct working directory.</p>
+      </div>
+      <div style="margin-top:12px" class="diagrams">
+        <!-- Inlined error_flow.svg -->
+        <svg xmlns="http://www.w3.org/2000/svg" width="1000" height="380" viewBox="0 0 1000 380">
+          <style>
+            .bg { fill: #071022 }
+            .title { fill: #fff; font-family: 'Segoe UI', Arial; font-size: 18px }
+            .step { fill: #ef4444; stroke: #7f1d1d; stroke-width:2; rx:6 }
+            .ok { fill: #10b981; stroke: #064e3b; stroke-width:2; rx:6 }
+            .text { fill: #fff; font-size:13px }
+            .muted { fill: #cbd5e1; font-size:12px }
+            .arrow { stroke: #94a3b8; stroke-width:2; marker-end: url(#a) }
+          </style>
+          <rect class="bg" width="1000" height="380" rx="8"/>
+          <text x="30" y="36" class="title">Error Timeline & Troubleshooting — API Not Opening</text>
+          <defs>
+            <marker id="a" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+              <polygon points="0 0, 10 3.5, 0 7" fill="#94a3b8" />
+            </marker>
+          </defs>
+
+          <!-- Steps -->
+          <rect class="step" x="40" y="80" width="260" height="70" />
+          <text class="text" x="60" y="110">1) Uvicorn started but /docs unreachable</text>
+          <text class="muted" x="60" y="130">Symptom: connection refused or server immediately shutdown</text>
+
+          <rect class="step" x="360" y="80" width="260" height="70" />
+          <text class="text" x="380" y="110">2) ImportError: No module named 'src' / 'inference'</text>
+          <text class="muted" x="380" y="130">Cause: Python path when running module vs script</text>
+
+          <rect class="step" x="680" y="80" width="260" height="70" />
+          <text class="text" x="700" y="110">3) Server startup completed then SHUTDOWN</text>
+          <text class="muted" x="700" y="130">Likely due to reloader, permission or leftover process</text>
+
+          <line class="arrow" x1="300" y1="115" x2="360" y2="115"/>
+          <line class="arrow" x1="620" y1="115" x2="680" y2="115"/>
+
+          <!-- Fixes -->
+          <rect class="ok" x="160" y="200" width="220" height="80" />
+          <text class="text" x="180" y="230">Fix: Use package import `from src.inference`</text>
+          <text class="muted" x="180" y="250">Start uvicorn as module: `python -m uvicorn src.api:app`</text>
+
+          <rect class="ok" x="520" y="200" width="260" height="80" />
+          <text class="text" x="540" y="230">Fix: Kill old processes; ensure port free</text>
+          <text class="muted" x="540" y="250">Use `Stop-Process -Id <pid>` (Windows PowerShell)</text>
+
+          <line class="arrow" x1="270" y1="200" x2="180" y2="200"/>
+          <line class="arrow" x1="490" y1="200" x2="520" y2="200"/>
+
+          <text class="muted" x="30" y="320">Notes: When using reload, reloader spawns child processes—be mindful of which process is active and which PID to stop.</text>
+        </svg>
+      </div>
+    </div>
+
+    <div class="slide">
+      <h2>What we will do (Next steps)</h2>
+      <div class="grid">
+        <div class="card">
+          <h3>Short-term</h3>
+          <ul>
+            <li>Add authentication + API keys</li>
+            <li>Add rate-limiting and request logging</li>
+            <li>Containerize: Dockerfile + docker-compose</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Medium-term</h3>
+          <ul>
+            <li>Deploy to Kubernetes with autoscaling</li>
+            <li>Set up Prometheus/Grafana monitoring</li>
+            <li>Model versioning and A/B testing</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="slide">
+      <h2>Detailed accomplishments</h2>
+      <div class="card">
+        <ol>
+          <li>End-to-end data pipeline with advanced preprocessing (expanded contractions, emoji removal, normalization).</li>
+          <li>Balanced dataset with oversampling and saved splits (CSV/JSONL).</li>
+          <li>Training pipeline using transformers + PyTorch — reproducible training script and checkpoints.</li>
+          <li>Statistical analysis and HTML report with visuals in `data/analysis/`.</li>
+          <li>Inference module (`src/inference.py`) and model exported under `models/hate-detection-balanced/`.</li>
+          <li>FastAPI server with endpoints, tests and documentation.</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="slide">
+      <h2>Demo Plan</h2>
+      <div class="card">
+        <p>1) Start server: <pre>python scripts/run_api.py</pre>
+        2) Show Swagger UI: <a href="http://127.0.0.1:8000/docs" style="color:var(--accent)">/docs</a>
+        3) Run sample predictions (clean / offensive / hate)
+        4) Show analysis visuals from `data/analysis/`</p>
+      </div>
+    </div>
+
+    <div class="slide">
+      <h2>Appendix & Notes</h2>
+      <div class="grid">
+        <div class="card">
+          <h3>Useful commands</h3>
+          <pre>python scripts/run_api.py
+python scripts/test_api.py
+curl -X POST http://127.0.0.1:8000/predict -H "Content-Type: application/json" -d '{"text":"I hate this"}'</pre>
+        </div>
+        <div class="card">
+          <h3>Where to find things</h3>
+          <p>`models/hate-detection-balanced/` — weights and tokenizer<br>`data/processed/` — preprocessed splits<br>`src/` — core scripts</p>
+        </div>
+      </div>
+      <footer>Prepared for presentation — December 11, 2025</footer>
+    </div>
+
+  </div>
+</body>
+</html>

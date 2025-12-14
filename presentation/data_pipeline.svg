@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="420" viewBox="0 0 1000 420">
+  <style>
+    .bg { fill: #071021; }
+    .title { fill: #fff; font-family: 'Segoe UI', Arial; font-size: 18px; }
+    .stage { fill: #06b6d4; stroke: #02303a; stroke-width:2; rx:10 }
+    .stage2 { fill: #6366f1; stroke: #2a2a7a; stroke-width:2; rx:10 }
+    .text { fill: #fff; font-size:13px; font-family: 'Segoe UI', Arial; }
+    .muted { fill: #94a3b8; font-size:12px }
+    .arrow { stroke: #94a3b8; stroke-width:2; marker-end: url(#a); }
+  </style>
+  <rect class="bg" width="1000" height="420" rx="8"/>
+  <text x="30" y="36" class="title">Data Pipeline — Preprocess & Balance</text>
+
+  <defs>
+    <marker id="a" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#94a3b8" />
+    </marker>
+  </defs>
+
+  <!-- Raw data -->
+  <g>
+    <rect class="stage" x="30" y="80" width="220" height="80"/>
+    <text class="text" x="50" y="110">Raw Data</text>
+    <text class="muted" x="50" y="130">data/archive/labeled_data.csv</text>
+  </g>
+
+  <!-- Clean -->
+  <g>
+    <rect class="stage" x="290" y="60" width="220" height="120"/>
+    <text class="text" x="330" y="100">Cleaning & Normalization</text>
+    <text class="muted" x="330" y="120">expand contractions, remove URLs, emojis</text>
+  </g>
+
+  <!-- Tokenize -->
+  <g>
+    <rect class="stage2" x="570" y="60" width="220" height="120"/>
+    <text class="text" x="600" y="100">Tokenization</text>
+    <text class="muted" x="600" y="120">Hugging Face tokenizer (max_len=128)</text>
+  </g>
+
+  <!-- Balance -->
+  <g>
+    <rect class="stage" x="290" y="220" width="220" height="80"/>
+    <text class="text" x="320" y="250">Class Balancing</text>
+    <text class="muted" x="320" y="270">Oversample minority classes → 19.2K each</text>
+  </g>
+
+  <!-- Export -->
+  <g>
+    <rect class="stage2" x="570" y="220" width="220" height="80"/>
+    <text class="text" x="600" y="250">Export Splits</text>
+    <text class="muted" x="600" y="270">train/validation/test CSV & JSONL</text>
+  </g>
+
+  <!-- Arrows -->
+  <line class="arrow" x1="250" y1="120" x2="290" y2="120"/>
+  <line class="arrow" x1="510" y1="120" x2="570" y2="120"/>
+  <line class="arrow" x1="400" y1="180" x2="400" y2="220"/>
+  <line class="arrow" x1="510" y1="260" x2="570" y2="260"/>
+
+  <!-- Summary -->
+  <text class="muted" x="30" y="340">Key files: src/preprocess_dataset.py, src/load_csv_dataset.py</text>
+  <text class="muted" x="30" y="360">Outcome: Balanced dataset — 57,546 samples (46K train / 5.7K val / 5.7K test)</text>
+</svg>
