@@ -1,0 +1,15 @@
+import pandas as pd
+
+df = pd.read_csv(r"data\archive\labeled_data.csv")
+print("Shape:", df.shape)
+print("\nColumns:", df.columns.tolist())
+print("\nFirst 3 rows:")
+print(df.head(3))
+print("\nData types:")
+print(df.dtypes)
+print("\nLabel distribution (class column):")
+print(df['class'].value_counts().sort_index())
+print("\nClass meanings (typical for this dataset):")
+print("0 = hate_speech")
+print("1 = offensive_language")
+print("2 = neither")

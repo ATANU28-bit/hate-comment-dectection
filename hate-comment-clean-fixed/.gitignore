@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+.env
+.ipynb_checkpoints/
+
+# Models & Data (Too large for git)
+models/
+data/
+runs/
+*.safetensors
+*.bin
+*.pt
+
+# Jupyter Notebooks
+*.ipynb
+
+# VS Code
+.vscode/
+
+# Node.js / React UI
+ui/node_modules/
+ui/dist/
+ui/.env
+ui/.DS_Store
+
+# Logs
+*.log
+presentation/
