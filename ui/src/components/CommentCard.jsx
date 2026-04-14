@@ -3,13 +3,13 @@ import { motion } from 'framer-motion';
 import { AlertTriangle, CheckCircle, Eye, EyeOff } from 'lucide-react';
 
 const CommentCard = ({ comment }) => {
-    const isToxic = comment.label === 'Hate Speech' || comment.label === 'Offensive Language';
+    const isToxic = comment.label === 'Abusive';
     const [blurred, setBlurred] = useState(isToxic);
 
     const getBadgeColor = () => {
         switch (comment.label) {
-            case 'Hate Speech': return 'bg-red-500/20 text-red-500 border-red-500/50';
-            case 'Offensive Language': return 'bg-orange-500/20 text-orange-500 border-orange-500/50';
+            case 'Abusive': return 'bg-red-500/20 text-red-500 border-red-500/50';
+            case 'Not Abusive': return 'bg-orange-500/20 text-orange-500 border-orange-500/50';
             default: return 'bg-green-500/20 text-green-500 border-green-500/50';
         }
     };

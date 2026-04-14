@@ -1,6 +1,7 @@
 import torch
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import numpy as np
+from src.youtube_service import YouTubeService
 
 class HateCommentClassifier:
     def __init__(self, model_path="models/hate-detection-balanced"):
@@ -12,8 +13,8 @@ class HateCommentClassifier:
         self.model.eval()
         
         # Mapping based on training (0: Hate Speech, 1: Offensive Language, 2: Neither)
-        # Note: Verify specific mapping from your dataset/training script
-        self.id2label = {0: "Hate Speech", 1: "Offensive Language", 2: "Neither"}
+        # Modified to match requested labels
+        self.id2label = {0: "Abusive", 1: "Not Abusive", 2: "Neither"}
         print("Model loaded successfully.")
 
     def predict(self, text):
@@ -66,14 +67,44 @@ class HateCommentClassifier:
                 })
         return results
 
+    def classify_transcription(self, transcription):
+        """
+        Classify a transcription and return abusive segments with timestamps.
+        
+        Args:
+            transcription (list): List of transcription segments with 'text', 'start_time', and 'end_time'.
+
+        Returns:
+            list: Abusive segments with timestamps.
+        """
+        abusive_segments = []
+        for segment in transcription:
+            text = segment['text']
+            start_time = segment['start_time']
+            end_time = segment['end_time']
+
+            classification = self.predict(text)
+            if classification['label'] == 'Abusive':
+                abusive_segments.append({
+                    'start_time': start_time,
+                    'end_time': end_time,
+                    'text': text
+                })
+        return abusive_segments
+
 if __name__ == "__main__":
-    # Test
+    # Initialize services
+    yt_service = YouTubeService()
     classifier = HateCommentClassifier()
-    test_texts = [
-        "I hate you and your people.",
-        "That was a stupid move.",
-        "Have a nice day!"
-    ]
-    for t in test_texts:
-        print(f"Input: {t}")
-        print(f"Output: {classifier.predict(t)}\n")
+
+    # Example YouTube video URL
+    video_url = "https://www.youtube.com/watch?v=jNQXAC9IVRw"
+
+    # Extract and classify video content
+    print("Extracting video content...")
+    transcript = yt_service.extract_video_content(video_url)
+    print("Transcript:", transcript)
+
+    print("Classifying content...")
+    result = classifier.predict(transcript)
+    print("Classification Result:", result)

@@ -8,3 +8,8 @@ sentencepiece
 accelerate
 fastapi
 uvicorn
+scipy
+moviepy
+pytubefix
+youtube-comment-downloader
+imageio-ffmpeg

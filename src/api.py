@@ -52,12 +52,20 @@ class CommentAnalysis(BaseModel):
     label: str
     confidence: float
 
+class AudioAnalysis(BaseModel):
+    text: str
+    timestamp: tuple
+    label: str
+    confidence: float
+
 class AnalyzeVideoResponse(BaseModel):
     video_url: str
     total_comments: int
     toxic_count: int
     safe_count: int
     comments: List[CommentAnalysis]
+    audio_chunks: List[AudioAnalysis] = []
+    toxic_audio_count: int = 0
 
 @app.get("/")
 def read_root():
@@ -85,32 +93,41 @@ def analyze_video(request: AnalyzeVideoRequest):
         raise HTTPException(status_code=503, detail="Service not initialized")
 
     try:
-        # 1. Fetch Comments
+        # 1. Fetch Comments and Audio Chunks
         raw_comments = yt_service.fetch_comments(request.url, limit=request.limit)
-        if not raw_comments:
+        audio_chunks_raw = yt_service.extract_video_content(request.url)
+        
+        # 2. Extract texts for batch prediction
+        comment_texts = [c['text'] for c in raw_comments]
+        audio_texts = [chunk['text'] for chunk in audio_chunks_raw]
+        
+        # 3. Batch Predict
+        all_texts = comment_texts + audio_texts
+        if not all_texts:
             return {
                 "video_url": request.url,
                 "total_comments": 0,
                 "toxic_count": 0,
                 "safe_count": 0,
-                "comments": []
+                "comments": [],
+                "audio_chunks": [],
+                "toxic_audio_count": 0
             }
+            
+        predictions = model.predict_batch(all_texts)
         
-        # 2. Extract texts for batch prediction
-        texts = [c['text'] for c in raw_comments]
+        # Split predictions
+        comment_preds = predictions[:len(comment_texts)]
+        audio_preds = predictions[len(comment_texts):]
         
-        # 3. Batch Predict
-        predictions = model.predict_batch(texts)
-        
-        # 4. Merge results
+        # 4. Merge results for comments
         analyzed_comments = []
         toxic_count = 0
         safe_count = 0
         
-        for i, pred in enumerate(predictions):
+        for i, pred in enumerate(comment_preds):
             label = pred['label']
-            # Heuristic: Hate Speech or Offensive Language = Toxic
-            is_toxic = label in ["Hate Speech", "Offensive Language"]
+            is_toxic = label == "Abusive"
             
             if is_toxic:
                 toxic_count += 1
@@ -124,12 +141,32 @@ def analyze_video(request: AnalyzeVideoRequest):
                 "confidence": pred['confidence']
             })
             
+        # 5. Merge results for audio chunks
+        analyzed_audio = []
+        toxic_audio_count = 0
+        
+        for i, pred in enumerate(audio_preds):
+            label = pred['label']
+            is_toxic = label == "Abusive"
+            
+            if is_toxic:
+                toxic_audio_count += 1
+                
+            analyzed_audio.append({
+                "text": audio_chunks_raw[i]['text'],
+                "timestamp": audio_chunks_raw[i]['timestamp'],
+                "label": label,
+                "confidence": pred['confidence']
+            })
+            
         return {
             "video_url": request.url,
             "total_comments": len(analyzed_comments),
             "toxic_count": toxic_count,
             "safe_count": safe_count,
-            "comments": analyzed_comments
+            "comments": analyzed_comments,
+            "audio_chunks": analyzed_audio,
+            "toxic_audio_count": toxic_audio_count
         }
 
     except ValueError as e:

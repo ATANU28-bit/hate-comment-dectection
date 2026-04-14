@@ -1,9 +1,24 @@
 from youtube_comment_downloader import YoutubeCommentDownloader, SORT_BY_POPULAR
 import re
-
+from pytubefix import YouTube
+from moviepy import AudioFileClip
+import torch
+import scipy.io.wavfile as wavfile
+import numpy as np
+from transformers import pipeline
+import os
 class YouTubeService:
     def __init__(self):
         self.downloader = YoutubeCommentDownloader()
+        self.transcriber = None
+
+    def _load_transcriber(self):
+        if self.transcriber is None:
+            self.transcriber = pipeline(
+                "automatic-speech-recognition", 
+                model="openai/whisper-tiny", 
+                chunk_length_s=30,
+            )
 
     def get_video_id(self, url):
         """Extract video ID from YouTube URL."""
@@ -45,6 +60,57 @@ class YouTubeService:
             
         return comments
 
+    def download_audio(self, video_url, output_path="audio.mp3"):
+        """Download audio from a YouTube video."""
+        video = YouTube(video_url)
+        audio_stream = video.streams.filter(only_audio=True).first()
+        if not audio_stream:
+            raise ValueError("No audio stream available for this video.")
+        audio_stream.download(filename=output_path)
+        return output_path
+
+    def transcribe_audio(self, audio_path):
+        """Transcribe audio to text with timestamps using Whisper."""
+        try:
+            self._load_transcriber()
+            
+            # Use moviepy to safely extract to wav format acceptable by scipy
+            clip = AudioFileClip(audio_path)
+            wav_path = "temp_audio.wav"
+            clip.write_audiofile(wav_path, codec='pcm_s16le', fps=16000, logger=None)
+            clip.close()
+            
+            # Read via scipy
+            sample_rate, data = wavfile.read(wav_path)
+            if len(data.shape) > 1:
+                data = data.mean(axis=1) # stereo to mono
+                
+            # Normalize to float32 between -1 and 1
+            data = data.astype(np.float32) / 32768.0
+            
+            # Transcribe with whisper pipeline
+            result = self.transcriber(data, return_timestamps=True)
+            
+            # Cleanup temp file if needed
+            if os.path.exists(wav_path):
+                os.remove(wav_path)
+                
+            return result.get('chunks', [])
+        except Exception as e:
+            print(f"Error in transcription: {e}")
+            return []
+
+    def extract_video_content(self, video_url):
+        """Extract audio and transcribe text with timestamps from a YouTube video."""
+        audio_path = self.download_audio(video_url)
+        chunks = self.transcribe_audio(audio_path)
+        
+        # Cleanup original audio file downloaded by pytubefix
+        if os.path.exists(audio_path):
+            os.remove(audio_path)
+            
+        return chunks
+
 if __name__ == "__main__":
     # Test
     yt = YouTubeService()
@@ -52,3 +118,8 @@ if __name__ == "__main__":
     comments = yt.fetch_comments(url, limit=5)
     for c in comments:
         print(c)
+
+    # Extract video content
+    print("Extracting video content...")
+    transcript = yt.extract_video_content(url)
+    print("Transcript:", transcript)
