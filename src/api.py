@@ -178,8 +178,11 @@ def analyze_video(request: AnalyzeVideoRequest):
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        print(f"Error analyzing video: {e}")
-        raise HTTPException(status_code=500, detail="Internal Server Error")
+        import traceback
+        err_msg = traceback.format_exc()
+        print(f"Error analyzing video:\n{err_msg}")
+        # Send the exact Python error string to the UI instead of a generic 500 error
+        raise HTTPException(status_code=500, detail=f"Python Error: {str(e)} | Trace: {err_msg[:200]}")
 
 if __name__ == "__main__":
     uvicorn.run("src.api:app", host="127.0.0.1", port=8000, reload=True)
