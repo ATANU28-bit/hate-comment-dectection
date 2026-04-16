@@ -21,18 +21,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Load model on startup
+# Load model lazily to allow instant server startup
 model = None
 yt_service = None
 
-@app.on_event("startup")
-def load_resources():
-    global model, yt_service
-    # Only load if not already loaded (useful for reload)
+def get_model():
+    global model
     if model is None:
         model = HateCommentClassifier()
+    return model
+
+def get_yt_service():
+    global yt_service
     if yt_service is None:
         yt_service = YouTubeService()
+    return yt_service
 
 class PredictRequest(BaseModel):
     text: str
@@ -78,24 +81,27 @@ def health_check():
 
 @app.post("/predict", response_model=PredictResponse)
 def predict(request: PredictRequest):
-    if not model:
-        raise HTTPException(status_code=503, detail="Model not loaded")
+    classifier = get_model()
+    if not classifier:
+        raise HTTPException(status_code=503, detail="Model failed to load")
     
     if not request.text:
         raise HTTPException(status_code=400, detail="Text cannot be empty")
         
-    result = model.predict(request.text)
+    result = classifier.predict(request.text)
     return result
 
 @app.post("/analyze-video", response_model=AnalyzeVideoResponse)
 def analyze_video(request: AnalyzeVideoRequest):
-    if not model or not yt_service:
+    classifier = get_model()
+    service = get_yt_service()
+    if not classifier or not service:
         raise HTTPException(status_code=503, detail="Service not initialized")
 
     try:
         # 1. Fetch Comments and Audio Chunks
-        raw_comments = yt_service.fetch_comments(request.url, limit=request.limit)
-        audio_chunks_raw = yt_service.extract_video_content(request.url)
+        raw_comments = service.fetch_comments(request.url, limit=request.limit)
+        audio_chunks_raw = service.extract_video_content(request.url)
         
         # 2. Extract texts for batch prediction
         comment_texts = [c['text'] for c in raw_comments]
@@ -114,7 +120,7 @@ def analyze_video(request: AnalyzeVideoRequest):
                 "toxic_audio_count": 0
             }
             
-        predictions = model.predict_batch(all_texts)
+        predictions = classifier.predict_batch(all_texts)
         
         # Split predictions
         comment_preds = predictions[:len(comment_texts)]
