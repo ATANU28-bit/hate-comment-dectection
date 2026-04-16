@@ -1,7 +1,10 @@
 from youtube_comment_downloader import YoutubeCommentDownloader, SORT_BY_POPULAR
 import re
 from pytubefix import YouTube
-from moviepy import AudioFileClip
+try:
+    from moviepy import AudioFileClip
+except ImportError:
+    from moviepy.editor import AudioFileClip
 import torch
 import scipy.io.wavfile as wavfile
 import numpy as np
