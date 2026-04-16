@@ -58,13 +58,9 @@ function App() {
 
         {/* Hero Section */}
         <div className="text-center mb-12">
-          <h2 className="text-5xl md:text-7xl font-black tracking-tight mb-6 bg-clip-text text-transparent bg-gradient-to-b from-white to-gray-500">
-            Clean Up the <br />
-            <span className="text-blue-500">Comment Section</span>
+          <h2 className="text-5xl md:text-7xl font-black tracking-tight mb-10 bg-clip-text text-transparent bg-gradient-to-b from-white to-blue-400">
+            TOXIC COMMENT DETECTION
           </h2>
-          <p className="text-xl text-gray-400 max-w-2xl mx-auto mb-10 leading-relaxed">
-            Instantly analyze YouTube comments for hate speech and toxicity using advanced AI (DistilBERT).
-          </p>
 
           <SearchBar onAnalyze={handleAnalyze} isLoading={isLoading} />
         </div>
