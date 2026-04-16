@@ -23,8 +23,10 @@ function App() {
       });
       setData(response.data);
     } catch (err) {
-      console.error(err);
-      setError(err.response?.data?.detail || 'Failed to analyze video. Make sure the backend is running.');
+      console.error("AXIOS ERROR DETAILED:", err);
+      // Surface exactly what the network failure is directly onto the UI so we can debug Colab network restrictions
+      let errorMessage = err.response?.data?.detail || err.message || 'Failed to analyze video.';
+      setError(`Backend Connection Error: ${errorMessage}`);
     } finally {
       setIsLoading(false);
     }
