@@ -7,14 +7,22 @@ class HateCommentClassifier:
     def __init__(self, model_path="models/hate-detection-balanced"):
         print(f"Loading model from {model_path}...")
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.tokenizer = AutoTokenizer.from_pretrained(model_path)
-        self.model = AutoModelForSequenceClassification.from_pretrained(model_path)
+        self.fallback_mode = False
+        
+        try:
+            self.tokenizer = AutoTokenizer.from_pretrained(model_path)
+            self.model = AutoModelForSequenceClassification.from_pretrained(model_path)
+            self.id2label = {0: "Abusive", 1: "Not Abusive", 2: "Neither"}
+        except Exception as e:
+            print(f"Local model '{model_path}' not found or failed to load. Using fallback HuggingFace model...")
+            fallback_model = "unitary/toxic-bert"
+            self.fallback_mode = True
+            self.tokenizer = AutoTokenizer.from_pretrained(fallback_model)
+            self.model = AutoModelForSequenceClassification.from_pretrained(fallback_model)
+            self.id2label = {0: "Abusive", 1: "Not Abusive", 2: "Neither"}
+
         self.model.to(self.device)
         self.model.eval()
-        
-        # Mapping based on training (0: Hate Speech, 1: Offensive Language, 2: Neither)
-        # Modified to match requested labels
-        self.id2label = {0: "Abusive", 1: "Not Abusive", 2: "Neither"}
         print("Model loaded successfully.")
 
     def predict(self, text):
@@ -24,20 +32,36 @@ class HateCommentClassifier:
         with torch.no_grad():
             outputs = self.model(**inputs)
             scores = outputs.logits
-            probs = torch.nn.functional.softmax(scores, dim=1)
             
-        probs = probs.cpu().numpy()[0]
-        pred_id = np.argmax(probs)
-        label = self.id2label[pred_id]
-        confidence = float(probs[pred_id])
-        
-        return {
-            "label": label,
-            "confidence": confidence,
-            "probabilities": {
-                self.id2label[i]: float(probs[i]) for i in range(len(probs))
+        if self.fallback_mode:
+            probs = torch.sigmoid(scores).cpu().numpy()[0]
+            max_prob = float(np.max(probs))
+            is_abusive = max_prob > 0.5
+            label = "Abusive" if is_abusive else "Not Abusive"
+            confidence = max_prob if is_abusive else (1.0 - max_prob)
+            
+            return {
+                "label": label,
+                "confidence": confidence,
+                "probabilities": {
+                    "Abusive": max_prob,
+                    "Not Abusive": 1.0 - max_prob,
+                    "Neither": 0.0
+                }
             }
-        }
+        else:
+            probs = torch.nn.functional.softmax(scores, dim=1).cpu().numpy()[0]
+            pred_id = np.argmax(probs)
+            label = self.id2label[pred_id]
+            confidence = float(probs[pred_id])
+            
+            return {
+                "label": label,
+                "confidence": confidence,
+                "probabilities": {
+                    self.id2label[i]: float(probs[i]) for i in range(len(probs))
+                }
+            }
 
     def predict_batch(self, texts, batch_size=16):
         results = []
@@ -49,22 +73,39 @@ class HateCommentClassifier:
             with torch.no_grad():
                 outputs = self.model(**inputs)
                 scores = outputs.logits
-                probs = torch.nn.functional.softmax(scores, dim=1)
-            
-            probs = probs.cpu().numpy()
-            pred_ids = np.argmax(probs, axis=1)
-            
-            for j, pred_id in enumerate(pred_ids):
-                label = self.id2label[pred_id]
-                confidence = float(probs[j][pred_id])
-                results.append({
-                    "text": batch_texts[j], 
-                    "label": label,
-                    "confidence": confidence,
-                    "probabilities": {
-                        self.id2label[k]: float(probs[j][k]) for k in range(len(probs[j]))
-                    }
-                })
+                
+            if self.fallback_mode:
+                probs = torch.sigmoid(scores).cpu().numpy()
+                for j in range(len(batch_texts)):
+                    max_prob = float(np.max(probs[j]))
+                    is_abusive = max_prob > 0.5
+                    label = "Abusive" if is_abusive else "Not Abusive"
+                    confidence = max_prob if is_abusive else (1.0 - max_prob)
+                    results.append({
+                        "text": batch_texts[j], 
+                        "label": label,
+                        "confidence": confidence,
+                        "probabilities": {
+                            "Abusive": max_prob,
+                            "Not Abusive": 1.0 - max_prob,
+                            "Neither": 0.0
+                        }
+                    })
+            else:
+                probs = torch.nn.functional.softmax(scores, dim=1).cpu().numpy()
+                pred_ids = np.argmax(probs, axis=1)
+                
+                for j, pred_id in enumerate(pred_ids):
+                    label = self.id2label[pred_id]
+                    confidence = float(probs[j][pred_id])
+                    results.append({
+                        "text": batch_texts[j], 
+                        "label": label,
+                        "confidence": confidence,
+                        "probabilities": {
+                            self.id2label[k]: float(probs[j][k]) for k in range(len(probs[j]))
+                        }
+                    })
         return results
 
     def classify_transcription(self, transcription):
