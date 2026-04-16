@@ -15,8 +15,9 @@ function App() {
     setData(null);
 
     try {
-      // Connect to Backend (Ensure uvicorn is running on port 8000)
-      const response = await axios.post('http://127.0.0.1:8000/analyze-video', {
+      // Connect to Backend (Uses environment variable or defaults to localhost)
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+      const response = await axios.post(`${apiUrl}/analyze-video`, {
         url: url,
         limit: 50 // Limit to 50 for quick demo, increase for prod
       });
