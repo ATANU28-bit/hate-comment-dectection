@@ -65,13 +65,26 @@ class YouTubeService:
         return comments
 
     def download_audio(self, video_url, output_path="audio.mp3"):
-        """Download audio from a YouTube video."""
-        video = YouTube(video_url)
-        audio_stream = video.streams.filter(only_audio=True).first()
-        if not audio_stream:
-            raise ValueError("No audio stream available for this video.")
-        audio_stream.download(filename=output_path)
-        return output_path
+        """Download audio from a YouTube video with bot-detection bypass."""
+        try:
+            # We use use_oauth=False by default as it's non-interactive
+            # but we can try different clients if one fails.
+            video = YouTube(video_url, client='WEB')
+            audio_stream = video.streams.filter(only_audio=True).first()
+            
+            if not audio_stream:
+                # Fallback to different client if WEB fails
+                video = YouTube(video_url, client='ANDROID')
+                audio_stream = video.streams.filter(only_audio=True).first()
+                
+            if not audio_stream:
+                raise ValueError("No audio stream available for this video.")
+                
+            audio_stream.download(filename=output_path)
+            return output_path
+        except Exception as e:
+            print(f"Error downloading audio: {e}")
+            raise e
 
     def transcribe_audio(self, audio_path):
         """Transcribe audio to text with timestamps using Whisper."""
