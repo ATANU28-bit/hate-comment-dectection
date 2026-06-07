@@ -45,8 +45,9 @@ class YouTubeService:
         
         comments = []
         try:
-            # generator
-            generator = self.downloader.get_comments(video_id, sort_by=SORT_BY_POPULAR)
+            # Attempt to fetch comments. Removing sort_by often fixes "Failed to set sorting" errors
+            # caused by changes in YouTube's internal layout.
+            generator = self.downloader.get_comments(video_id)
             for i, comment in enumerate(generator):
                 if i >= limit:
                     break
