@@ -100,7 +100,12 @@ def analyze_video(request: AnalyzeVideoRequest):
 
     try:
         # 1. Fetch Comments and Audio Chunks
-        raw_comments = service.fetch_comments(request.url, limit=request.limit)
+        try:
+            raw_comments = service.fetch_comments(request.url, limit=request.limit)
+        except Exception as e:
+            print(f"Warning: Could not fetch comments: {e}")
+            raw_comments = [] # Fallback: No comments, but continue with audio
+            
         audio_chunks_raw = service.extract_video_content(request.url)
         
         # 2. Extract texts for batch prediction
@@ -181,7 +186,6 @@ def analyze_video(request: AnalyzeVideoRequest):
         import traceback
         err_msg = traceback.format_exc()
         print(f"Error analyzing video:\n{err_msg}")
-        # Send the exact Python error string to the UI instead of a generic 500 error
         raise HTTPException(status_code=500, detail=f"Python Error: {str(e)} | Trace: {err_msg[:200]}")
 
 if __name__ == "__main__":
