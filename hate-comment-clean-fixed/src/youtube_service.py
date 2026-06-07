@@ -28,7 +28,7 @@ class YouTubeService:
         comments = []
         try:
             # generator
-            generator = self.downloader.get_comments(video_id, sort_by=SORT_BY_POPULAR)
+            generator = self.downloader.get_comments(video_id)
             for i, comment in enumerate(generator):
                 if i >= limit:
                     break
