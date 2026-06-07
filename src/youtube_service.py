@@ -65,18 +65,14 @@ class YouTubeService:
         return comments
 
     def download_audio(self, video_url, output_path="audio.mp3"):
-        """Download audio from a YouTube video with bot-detection bypass."""
+        """Download audio from a YouTube video with OAuth bypass."""
         try:
-            # We use use_oauth=False by default as it's non-interactive
-            # but we can try different clients if one fails.
-            video = YouTube(video_url, client='WEB')
+            # Enabling OAuth is the most reliable way to bypass bot detection.
+            # The first time this runs, check the logs for a code to enter at google.com/device
+            print(f"Attempting to download audio for {video_url} using OAuth...")
+            video = YouTube(video_url, use_oauth=True, allow_oauth_cache=True)
             audio_stream = video.streams.filter(only_audio=True).first()
             
-            if not audio_stream:
-                # Fallback to different client if WEB fails
-                video = YouTube(video_url, client='ANDROID')
-                audio_stream = video.streams.filter(only_audio=True).first()
-                
             if not audio_stream:
                 raise ValueError("No audio stream available for this video.")
                 
