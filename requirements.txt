@@ -13,3 +13,5 @@ moviepy
 pytubefix
 youtube-comment-downloader
 imageio-ffmpeg
+openai-whisper
+python-multipart

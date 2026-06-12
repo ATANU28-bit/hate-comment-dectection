@@ -8,3 +8,7 @@ sentencepiece
 accelerate
 fastapi
 uvicorn
+openai-whisper
+moviepy
+python-multipart
+youtube-comment-downloader

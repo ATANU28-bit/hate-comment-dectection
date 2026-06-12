@@ -1,29 +1,34 @@
-import uvicorn
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
+import os
+import tempfile
+import shutil
+import uvicorn
 from src.inference import HateCommentClassifier
 from src.youtube_service import YouTubeService
+from src.audio_service import AudioService
 
 app = FastAPI(
-    title="Hate Comment Detection API",
-    description="API for classifying text and YouTube video comments as Hate Speech, Offensive Language, or Neither.",
-    version="1.0.0"
+    title="HateGuard API",
+    description="API for detecting toxicity in YouTube comments and Offline Media.",
+    version="1.1.0"
 )
 
 # Enable CORS for Frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # For dev only. In prod, restrict to specific domains.
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Load model lazily to allow instant server startup
+# Lazy loading resources
 model = None
 yt_service = None
+audio_service = None
 
 def get_model():
     global model
@@ -37,6 +42,12 @@ def get_yt_service():
         yt_service = YouTubeService()
     return yt_service
 
+def get_audio_service():
+    global audio_service
+    if audio_service is None:
+        audio_service = AudioService()
+    return audio_service
+
 class PredictRequest(BaseModel):
     text: str
 
@@ -49,144 +60,166 @@ class AnalyzeVideoRequest(BaseModel):
     url: str
     limit: Optional[int] = 50
 
-class CommentAnalysis(BaseModel):
+class AnalysisItem(BaseModel):
     text: str
     author: str
     label: str
     confidence: float
+    start: Optional[float] = None
+    end: Optional[float] = None
 
-class AudioAnalysis(BaseModel):
-    text: str
-    timestamp: tuple
-    label: str
-    confidence: float
-
-class AnalyzeVideoResponse(BaseModel):
-    video_url: str
-    total_comments: int
+class AnalyzeResponse(BaseModel):
+    source: str
+    total_segments: int
     toxic_count: int
     safe_count: int
-    comments: List[CommentAnalysis]
-    audio_chunks: List[AudioAnalysis] = []
-    toxic_audio_count: int = 0
+    analysis: List[AnalysisItem]
 
 @app.get("/")
 def read_root():
-    return {"message": "Hate Comment Detection API is running. Go to /docs for Swagger UI."}
+    return {"message": "HateGuard API is active."}
 
 @app.get("/health")
 def health_check():
-    status = "healthy" if model else "unhealthy"
-    return {"status": status, "model_loaded": model is not None}
+    return {"status": "healthy", "model_loaded": model is not None}
 
 @app.post("/predict", response_model=PredictResponse)
 def predict(request: PredictRequest):
     classifier = get_model()
-    if not classifier:
-        raise HTTPException(status_code=503, detail="Model failed to load")
-    
     if not request.text:
         raise HTTPException(status_code=400, detail="Text cannot be empty")
-        
-    result = classifier.predict(request.text)
-    return result
+    return classifier.predict(request.text)
 
-@app.post("/analyze-video", response_model=AnalyzeVideoResponse)
+@app.post("/analyze-video", response_model=AnalyzeResponse)
 def analyze_video(request: AnalyzeVideoRequest):
     classifier = get_model()
-    service = get_yt_service()
-    if not classifier or not service:
-        raise HTTPException(status_code=503, detail="Service not initialized")
-
+    yt = get_yt_service()
+    
     try:
-        # 1. Fetch Comments and Audio Chunks
+        # 1. Fetch Comments
         try:
-            raw_comments = service.fetch_comments(request.url, limit=request.limit)
-        except Exception as e:
-            print(f"Warning: Could not fetch comments: {e}")
-            raw_comments = [] # Fallback: No comments, but continue with audio
+            raw_comments = yt.fetch_comments(request.url, limit=request.limit)
+        except Exception:
+            raw_comments = []
             
-        audio_chunks_raw = service.extract_video_content(request.url)
+        # 2. Extract Audio Transcription (Present in root project)
+        try:
+            audio_chunks_raw = yt.extract_video_content(request.url)
+        except Exception as e:
+            print(f"Audio extraction failed: {e}")
+            audio_chunks_raw = []
+
+        # 3. Combine for batch processing
+        texts = [c['text'] for c in raw_comments] + [chunk['text'] for chunk in audio_chunks_raw]
         
-        # 2. Extract texts for batch prediction
-        comment_texts = [c['text'] for c in raw_comments]
-        audio_texts = [chunk['text'] for chunk in audio_chunks_raw]
-        
-        # 3. Batch Predict
-        all_texts = comment_texts + audio_texts
-        if not all_texts:
+        if not texts:
             return {
-                "video_url": request.url,
-                "total_comments": 0,
+                "source": request.url,
+                "total_segments": 0,
                 "toxic_count": 0,
                 "safe_count": 0,
-                "comments": [],
-                "audio_chunks": [],
-                "toxic_audio_count": 0
+                "analysis": []
             }
-            
-        predictions = classifier.predict_batch(all_texts)
+
+        predictions = classifier.predict_batch(texts)
         
-        # Split predictions
-        comment_preds = predictions[:len(comment_texts)]
-        audio_preds = predictions[len(comment_texts):]
-        
-        # 4. Merge results for comments
-        analyzed_comments = []
+        # 4. Merge results
+        analyzed_items = []
         toxic_count = 0
-        safe_count = 0
         
-        for i, pred in enumerate(comment_preds):
-            label = pred['label']
-            is_toxic = label == "Abusive"
-            
-            if is_toxic:
-                toxic_count += 1
-            else:
-                safe_count += 1
-                
-            analyzed_comments.append({
+        # Process Comments
+        for i, pred in enumerate(predictions[:len(raw_comments)]):
+            is_toxic = pred['label'] in ["Hate Speech", "Offensive Language", "Abusive"]
+            if is_toxic: toxic_count += 1
+            analyzed_items.append({
                 "text": raw_comments[i]['text'],
                 "author": raw_comments[i]['author'],
-                "label": label,
+                "label": pred['label'],
                 "confidence": pred['confidence']
             })
             
-        # 5. Merge results for audio chunks
-        analyzed_audio = []
-        toxic_audio_count = 0
+        # Process Audio
+        for i, pred in enumerate(predictions[len(raw_comments):]):
+            idx = i
+            is_toxic = pred['label'] in ["Hate Speech", "Offensive Language", "Abusive"]
+            if is_toxic: toxic_count += 1
+            analyzed_items.append({
+                "text": audio_chunks_raw[idx]['text'],
+                "author": "Speaker (Video)",
+                "label": pred['label'],
+                "confidence": pred['confidence'],
+                "start": audio_chunks_raw[idx]['timestamp'][0],
+                "end": audio_chunks_raw[idx]['timestamp'][1]
+            })
+
+        return {
+            "source": request.url,
+            "total_segments": len(analyzed_items),
+            "toxic_count": toxic_count,
+            "safe_count": len(analyzed_items) - toxic_count,
+            "analysis": analyzed_items
+        }
+
+    except Exception as e:
+        print(f"Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/analyze-file", response_model=AnalyzeResponse)
+async def analyze_file(file: UploadFile = File(...)):
+    classifier = get_model()
+    service = get_audio_service()
+
+    temp_dir = tempfile.mkdtemp()
+    temp_path = os.path.join(temp_dir, file.filename)
+    
+    try:
+        with open(temp_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
         
-        for i, pred in enumerate(audio_preds):
-            label = pred['label']
-            is_toxic = label == "Abusive"
-            
-            if is_toxic:
-                toxic_audio_count += 1
-                
-            analyzed_audio.append({
-                "text": audio_chunks_raw[i]['text'],
-                "timestamp": audio_chunks_raw[i]['timestamp'],
-                "label": label,
-                "confidence": pred['confidence']
+        transcription = service.transcribe(temp_path)
+        segments = transcription['segments']
+        
+        if not segments:
+            return {
+                "source": file.filename,
+                "total_segments": 0,
+                "toxic_count": 0,
+                "safe_count": 0,
+                "analysis": []
+            }
+
+        texts = [s['text'] for s in segments]
+        predictions = classifier.predict_batch(texts)
+        
+        analyzed_items = []
+        toxic_count = 0
+        
+        for i, pred in enumerate(predictions):
+            is_toxic = pred['label'] in ["Hate Speech", "Offensive Language", "Abusive"]
+            if is_toxic: toxic_count += 1
+            analyzed_items.append({
+                "text": segments[i]['text'],
+                "author": "Speaker",
+                "label": pred['label'],
+                "confidence": pred['confidence'],
+                "start": segments[i]['start'],
+                "end": segments[i]['end']
             })
             
         return {
-            "video_url": request.url,
-            "total_comments": len(analyzed_comments),
+            "source": file.filename,
+            "total_segments": len(analyzed_items),
             "toxic_count": toxic_count,
-            "safe_count": safe_count,
-            "comments": analyzed_comments,
-            "audio_chunks": analyzed_audio,
-            "toxic_audio_count": toxic_audio_count
+            "safe_count": len(analyzed_items) - toxic_count,
+            "analysis": analyzed_items
         }
 
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        import traceback
-        err_msg = traceback.format_exc()
-        print(f"Error analyzing video:\n{err_msg}")
-        raise HTTPException(status_code=500, detail=f"Python Error: {str(e)} | Trace: {err_msg[:200]}")
+        print(f"Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if os.path.exists(temp_dir):
+            shutil.rmtree(temp_dir)
 
 if __name__ == "__main__":
     uvicorn.run("src.api:app", host="127.0.0.1", port=8000, reload=True)
