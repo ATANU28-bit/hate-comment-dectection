@@ -4,26 +4,32 @@ import numpy as np
 from src.youtube_service import YouTubeService
 
 class HateCommentClassifier:
-    def __init__(self, model_path="models/hate-detection-balanced"):
-        print(f"Loading model from {model_path}...")
+    def __init__(self, model_name="unitary/multilingual-toxic-xlm-roberta"):
+        print(f"Loading Multimodal Toxicity Model ({model_name})...")
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.fallback_mode = False
         
         try:
-            self.tokenizer = AutoTokenizer.from_pretrained(model_path)
-            self.model = AutoModelForSequenceClassification.from_pretrained(model_path)
-            self.id2label = {0: "Abusive", 1: "Not Abusive", 2: "Neither"}
+            # Use the high-performance multilingual model as primary
+            self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+            self.model = AutoModelForSequenceClassification.from_pretrained(model_name)
+            self.labels = ["toxic", "severe_toxic", "obscene", "threat", "insult", "identity_hate"]
+            self.fallback_mode = True # Use the sigmoid/multi-label logic
+            print(f"Multilingual model loaded on {self.device}.")
         except Exception as e:
-            print(f"Local model '{model_path}' not found or failed to load. Using fallback HuggingFace model...")
-            fallback_model = "unitary/toxic-bert"
-            self.fallback_mode = True
-            self.tokenizer = AutoTokenizer.from_pretrained(fallback_model)
-            self.model = AutoModelForSequenceClassification.from_pretrained(fallback_model)
-            self.id2label = {0: "Abusive", 1: "Not Abusive", 2: "Neither"}
+            print(f"Error loading multilingual model: {e}. Falling back to default...")
+            # Fallback to a simpler model if needed
+            model_path = "models/hate-detection-balanced"
+            try:
+                self.tokenizer = AutoTokenizer.from_pretrained(model_path)
+                self.model = AutoModelForSequenceClassification.from_pretrained(model_path)
+                self.id2label = {0: "Abusive", 1: "Not Abusive", 2: "Neither"}
+                self.fallback_mode = False
+            except:
+                print("Critical: No model found. Use 'pip install' and download models.")
+                raise e
 
         self.model.to(self.device)
         self.model.eval()
-        print("Model loaded successfully.")
 
     def predict(self, text):
         inputs = self.tokenizer(text, return_tensors="pt", truncation=True, max_length=128)
@@ -34,18 +40,22 @@ class HateCommentClassifier:
             scores = outputs.logits
             
         if self.fallback_mode:
+            # Multilingual model uses sigmoid for multi-label classification
             probs = torch.sigmoid(scores).cpu().numpy()[0]
-            max_prob = float(np.max(probs))
-            is_abusive = max_prob > 0.5
-            label = "Abusive" if is_abusive else "Not Abusive"
-            confidence = max_prob if is_abusive else (1.0 - max_prob)
+            
+            # If any toxicity label is > 0.5, classify as Abusive
+            max_tox_prob = float(np.max(probs))
+            is_toxic = max_tox_prob > 0.5
+            
+            label = "Abusive" if is_toxic else "Not Abusive"
+            confidence = max_tox_prob if is_toxic else (1.0 - max_tox_prob)
             
             return {
                 "label": label,
                 "confidence": confidence,
                 "probabilities": {
-                    "Abusive": max_prob,
-                    "Not Abusive": 1.0 - max_prob,
+                    "Abusive": max_tox_prob,
+                    "Not Abusive": 1.0 - max_tox_prob,
                     "Neither": 0.0
                 }
             }
@@ -75,19 +85,20 @@ class HateCommentClassifier:
                 scores = outputs.logits
                 
             if self.fallback_mode:
+                # Sigmoid for multi-label multilingual model
                 probs = torch.sigmoid(scores).cpu().numpy()
                 for j in range(len(batch_texts)):
-                    max_prob = float(np.max(probs[j]))
-                    is_abusive = max_prob > 0.5
-                    label = "Abusive" if is_abusive else "Not Abusive"
-                    confidence = max_prob if is_abusive else (1.0 - max_prob)
+                    max_tox_prob = float(np.max(probs[j]))
+                    is_toxic = max_tox_prob > 0.5
+                    label = "Abusive" if is_toxic else "Not Abusive"
+                    confidence = max_tox_prob if is_toxic else (1.0 - max_tox_prob)
                     results.append({
                         "text": batch_texts[j], 
                         "label": label,
                         "confidence": confidence,
                         "probabilities": {
-                            "Abusive": max_prob,
-                            "Not Abusive": 1.0 - max_prob,
+                            "Abusive": max_tox_prob,
+                            "Not Abusive": 1.0 - max_tox_prob,
                             "Neither": 0.0
                         }
                     })

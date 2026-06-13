@@ -1,17 +1,20 @@
 import os
 import whisper
-import moviepy.editor as mp
+try:
+    import moviepy.editor as mp
+except ImportError:
+    import moviepy as mp
 import tempfile
 from pathlib import Path
 
 class AudioService:
-    def __init__(self, model_name="base"):
+    def __init__(self, model_name="small"):
         self.model = None
         self.model_name = model_name
 
     def _load_model(self):
         if self.model is None:
-            print(f"Loading Whisper model: {self.model_name}...")
+            print(f"Loading Whisper model: {self.model_name} (Multilingual)...")
             self.model = whisper.load_model(self.model_name)
             print("Whisper model loaded.")
 
@@ -29,7 +32,7 @@ class AudioService:
         return temp_audio_path
 
     def transcribe(self, file_path):
-        """Transcribe audio or video file."""
+        """Transcribe audio or video file in its native language."""
         self._load_model()
         
         file_ext = Path(file_path).suffix.lower()
@@ -43,7 +46,9 @@ class AudioService:
             else:
                 process_path = file_path
 
-            print(f"Transcribing {process_path}...")
+            print(f"Analyzing speech in {process_path}...")
+            # Removed task="translate" to keep native language
+            # This allows the multilingual classifier to see the original toxic words
             result = self.model.transcribe(str(process_path))
             
             # segments contains timestamps and text

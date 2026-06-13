@@ -75,7 +75,7 @@ function App() {
               <ShieldIcon />
             </div>
             <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
-              HateGuard
+              HG Multimodal
             </h1>
           </div>
           <div className="flex items-center gap-4">
@@ -87,12 +87,12 @@ function App() {
 
         {/* Hero Section */}
         <div className="text-center mb-12">
-          <h2 className="text-5xl md:text-7xl font-black tracking-tight mb-6 bg-clip-text text-transparent bg-gradient-to-b from-white to-gray-500">
-            Clean Up the <br />
-            <span className="text-blue-500">Media Stream</span>
+          <h2 className="text-5xl md:text-7xl font-black tracking-tight mb-6 bg-clip-text text-transparent bg-gradient-to-b from-white to-gray-500 uppercase">
+            Multimodal <br />
+            <span className="text-blue-500">Toxicity Detection</span>
           </h2>
-          <p className="text-xl text-gray-400 max-w-2xl mx-auto mb-10 leading-relaxed">
-            Instantly analyze YouTube comments or <span className="text-blue-400 font-semibold">offline video/audio</span> for hate speech and toxicity using Whisper & DistilBERT.
+          <p className="text-xl text-gray-400 max-w-2xl mx-auto mb-10 leading-relaxed italic">
+            Platform for analyzing YouTube streams, comments, and offline media in <span className="text-blue-400 font-semibold">Multiple Languages</span>.
           </p>
 
           <div className="flex flex-col items-center gap-6">

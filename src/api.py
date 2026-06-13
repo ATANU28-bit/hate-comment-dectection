@@ -6,6 +6,7 @@ import os
 import tempfile
 import shutil
 import uvicorn
+from transformers import pipeline
 from src.inference import HateCommentClassifier
 from src.youtube_service import YouTubeService
 from src.audio_service import AudioService
@@ -29,6 +30,7 @@ app.add_middleware(
 model = None
 yt_service = None
 audio_service = None
+translator = None
 
 def get_model():
     global model
@@ -47,6 +49,29 @@ def get_audio_service():
     if audio_service is None:
         audio_service = AudioService()
     return audio_service
+
+def get_translator():
+    global translator
+    if translator is None:
+        print("Loading Multilingual-to-English translator...")
+        translator = pipeline("translation", model="Helsinki-NLP/opus-mt-mul-en")
+    return translator
+
+def translate_if_needed(text):
+    """
+    Optional: Translate text to English for display convenience.
+    However, our classifier now handles multilingual text natively.
+    """
+    # Only translate if clearly not English and long enough to be a sentence
+    if any(ord(char) > 127 for char in text) and len(text) > 10:
+        try:
+            # We keep this as an option for UI display, but detection is done on original text
+            trans = get_translator()
+            result = trans(text, max_length=128)
+            return f"{text} (EN: {result[0]['translation_text']})"
+        except Exception as e:
+            return text
+    return text
 
 class PredictRequest(BaseModel):
     text: str
@@ -95,21 +120,26 @@ def analyze_video(request: AnalyzeVideoRequest):
     classifier = get_model()
     yt = get_yt_service()
     
+    print(f"\n--- Starting Analysis for: {request.url} ---")
     try:
         # 1. Fetch Comments
+        print("[Step 1/4] Fetching YouTube comments...")
         try:
             raw_comments = yt.fetch_comments(request.url, limit=request.limit)
-        except Exception:
+        except Exception as e:
+            print(f"Warning: Comment fetch failed: {e}")
             raw_comments = []
             
-        # 2. Extract Audio Transcription (Present in root project)
+        # 2. Extract Audio Transcription
+        print("[Step 2/4] Extracting and Transcribing Video Audio (this may take 1-3 mins)...")
         try:
             audio_chunks_raw = yt.extract_video_content(request.url)
         except Exception as e:
-            print(f"Audio extraction failed: {e}")
+            print(f"Warning: Audio transcription failed: {e}")
             audio_chunks_raw = []
 
         # 3. Combine for batch processing
+        print("[Step 3/4] Running toxicity detection on all content...")
         texts = [c['text'] for c in raw_comments] + [chunk['text'] for chunk in audio_chunks_raw]
         
         if not texts:
@@ -124,6 +154,7 @@ def analyze_video(request: AnalyzeVideoRequest):
         predictions = classifier.predict_batch(texts)
         
         # 4. Merge results
+        print("[Step 4/4] Finalizing report and translating to English...")
         analyzed_items = []
         toxic_count = 0
         
@@ -131,8 +162,12 @@ def analyze_video(request: AnalyzeVideoRequest):
         for i, pred in enumerate(predictions[:len(raw_comments)]):
             is_toxic = pred['label'] in ["Hate Speech", "Offensive Language", "Abusive"]
             if is_toxic: toxic_count += 1
+            
+            # Translate if needed
+            display_text = translate_if_needed(raw_comments[i]['text'])
+            
             analyzed_items.append({
-                "text": raw_comments[i]['text'],
+                "text": display_text,
                 "author": raw_comments[i]['author'],
                 "label": pred['label'],
                 "confidence": pred['confidence']
@@ -152,6 +187,7 @@ def analyze_video(request: AnalyzeVideoRequest):
                 "end": audio_chunks_raw[idx]['timestamp'][1]
             })
 
+        print(f"--- Analysis Complete! Flagged {toxic_count} toxic items. ---\n")
         return {
             "source": request.url,
             "total_segments": len(analyzed_items),
@@ -222,4 +258,4 @@ async def analyze_file(file: UploadFile = File(...)):
             shutil.rmtree(temp_dir)
 
 if __name__ == "__main__":
-    uvicorn.run("src.api:app", host="127.0.0.1", port=8000, reload=True)
+    uvicorn.run("src.api:app", host="0.0.0.0", port=8000, reload=True)

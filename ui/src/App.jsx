@@ -16,7 +16,9 @@ function App() {
     setData(null);
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+      // Priority: env variable > localhost > 127.0.0.1
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      
       const response = await axios.post(`${apiUrl}/analyze-video`, {
         url: url,
         limit: 100
@@ -24,7 +26,8 @@ function App() {
       setData(response.data);
     } catch (err) {
       console.error(err);
-      setError(err.response?.data?.detail || 'Failed to analyze video. Make sure the backend is running.');
+      const host = window.location.hostname;
+      setError(`Connection Error: Could not reach backend at ${import.meta.env.VITE_API_URL || 'http://localhost:8000'}. Please ensure python -m src.api is running.`);
     } finally {
       setIsLoading(false);
     }
@@ -43,7 +46,7 @@ function App() {
     formData.append('file', file);
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
       const response = await axios.post(`${apiUrl}/analyze-file`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
         onUploadProgress: (progressEvent) => {
@@ -75,7 +78,7 @@ function App() {
               <ShieldIcon />
             </div>
             <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
-              HateGuard
+              HG Multimodal
             </h1>
           </div>
           <div className="flex items-center gap-4">
@@ -86,12 +89,12 @@ function App() {
         </header>
 
         <div className="text-center mb-12">
-          <h2 className="text-5xl md:text-7xl font-black tracking-tight mb-6 bg-clip-text text-transparent bg-gradient-to-b from-white to-gray-500">
-            Clean Up the <br />
-            <span className="text-blue-500">Media Stream</span>
+          <h2 className="text-5xl md:text-7xl font-black tracking-tight mb-6 bg-clip-text text-transparent bg-gradient-to-b from-white to-gray-500 uppercase">
+            Multimodal <br />
+            <span className="text-blue-500">Toxicity Detection</span>
           </h2>
-          <p className="text-xl text-gray-400 max-w-2xl mx-auto mb-10 leading-relaxed">
-            Instantly analyze YouTube comments or <span className="text-blue-400 font-semibold">offline video/audio</span> for hate speech and toxicity using Whisper & DistilBERT.
+          <p className="text-xl text-gray-400 max-w-3xl mx-auto mb-10 leading-relaxed font-medium">
+            AI-powered toxicity detection for YouTube and offline media in <span className="text-blue-400">100+ languages</span>.
           </p>
 
           <div className="flex flex-col items-center gap-6">
@@ -133,6 +136,11 @@ function App() {
         )}
 
         <AnalysisDashboard data={data} />
+        
+        {/* Version Tag */}
+        <div className="fixed bottom-4 right-4 text-[10px] text-gray-600 font-mono">
+          v1.2 - MULTIMODAL_UPDATED
+        </div>
       </div>
     </div>
   );

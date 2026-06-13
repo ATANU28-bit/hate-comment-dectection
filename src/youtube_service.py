@@ -10,6 +10,7 @@ import scipy.io.wavfile as wavfile
 import numpy as np
 from transformers import pipeline
 import os
+import tempfile
 class YouTubeService:
     def __init__(self):
         self.downloader = YoutubeCommentDownloader()
@@ -17,9 +18,10 @@ class YouTubeService:
 
     def _load_transcriber(self):
         if self.transcriber is None:
+            # Using 'base' instead of 'tiny' for better accuracy in languages like Hindi
             self.transcriber = pipeline(
                 "automatic-speech-recognition", 
-                model="openai/whisper-tiny", 
+                model="openai/whisper-base", 
                 chunk_length_s=30,
             )
 
@@ -64,8 +66,10 @@ class YouTubeService:
             
         return comments
 
-    def download_audio(self, video_url, output_path="audio.mp3"):
+    def download_audio(self, video_url):
         """Download audio from a YouTube video with OAuth bypass."""
+        temp_dir = tempfile.mkdtemp()
+        output_path = os.path.join(temp_dir, "audio.mp3")
         try:
             # Enabling OAuth is the most reliable way to bypass bot detection.
             # The first time this runs, check the logs for a code to enter at google.com/device
@@ -84,12 +88,13 @@ class YouTubeService:
 
     def transcribe_audio(self, audio_path):
         """Transcribe audio to text with timestamps using Whisper."""
+        temp_dir = tempfile.mkdtemp()
+        wav_path = os.path.join(temp_dir, "temp_audio.wav")
         try:
             self._load_transcriber()
             
             # Use moviepy to safely extract to wav format acceptable by scipy
             clip = AudioFileClip(audio_path)
-            wav_path = "temp_audio.wav"
             clip.write_audiofile(wav_path, codec='pcm_s16le', fps=16000, logger=None)
             clip.close()
             
@@ -101,28 +106,34 @@ class YouTubeService:
             # Normalize to float32 between -1 and 1
             data = data.astype(np.float32) / 32768.0
             
-            # Transcribe with whisper pipeline
-            result = self.transcriber(data, return_timestamps=True)
+            # Transcribe and translate with whisper pipeline
+            # language='en' with task='translate' ensures consistent English output
+            result = self.transcriber(
+                data, 
+                return_timestamps=True, 
+                generate_kwargs={"task": "translate", "language": "en"}
+            )
             
-            # Cleanup temp file if needed
-            if os.path.exists(wav_path):
-                os.remove(wav_path)
-                
             return result.get('chunks', [])
         except Exception as e:
             print(f"Error in transcription: {e}")
             return []
+        finally:
+            if os.path.exists(temp_dir):
+                import shutil
+                shutil.rmtree(temp_dir)
 
     def extract_video_content(self, video_url):
         """Extract audio and transcribe text with timestamps from a YouTube video."""
         audio_path = self.download_audio(video_url)
-        chunks = self.transcribe_audio(audio_path)
-        
-        # Cleanup original audio file downloaded by pytubefix
-        if os.path.exists(audio_path):
-            os.remove(audio_path)
-            
-        return chunks
+        try:
+            chunks = self.transcribe_audio(audio_path)
+            return chunks
+        finally:
+            # Cleanup audio file and its parent temp dir
+            if os.path.exists(audio_path):
+                import shutil
+                shutil.rmtree(os.path.dirname(audio_path), ignore_errors=True)
 
 if __name__ == "__main__":
     # Test
