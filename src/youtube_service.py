@@ -72,46 +72,62 @@ class YouTubeService:
         return comments
 
     def download_audio(self, video_url):
-        """Download audio from a YouTube video using yt-dlp (more robust than pytube)."""
+        """Download audio from a YouTube video using a robust multi-stage downloader."""
         temp_dir = tempfile.mkdtemp()
-        output_template = os.path.join(temp_dir, "audio.%(ext)s")
         final_path = os.path.join(temp_dir, "audio.mp3")
         
+        # STAGE 1: Try pytubefix (with OAuth support) - Best for Colab bot bypass
         try:
-            print(f"Attempting to download audio using yt-dlp: {video_url}")
-            # Simplified yt-dlp command to extract best audio
+            print(f"Attempting Stage 1 download (pytubefix with OAuth): {video_url}")
+            from pytubefix import YouTube
+            # use_oauth=True/allow_oauth_cache=True allows using the login from the notebook cell
+            yt = YouTube(video_url, use_oauth=True, allow_oauth_cache=True)
+            
+            # Filter for audio only
+            stream = yt.streams.filter(only_audio=True).first()
+            if stream:
+                downloaded_file = stream.download(output_path=temp_dir, filename="audio_raw")
+                # Convert to mp3 using ffmpeg (very fast)
+                import subprocess
+                subprocess.run(["ffmpeg", "-i", downloaded_file, "-q:a", "0", "-map", "a", final_path, "-y"], capture_output=True)
+                
+                if os.path.exists(final_path) and os.path.getsize(final_path) > 0:
+                    print(f"✅ Stage 1 SUCCESS: Downloaded {os.path.getsize(final_path)} bytes")
+                    return final_path
+        except Exception as e:
+            print(f"⚠️ Stage 1 Failed (pytubefix): {e}")
+
+        # STAGE 2: Try yt-dlp (Robust fallback)
+        try:
+            print(f"Attempting Stage 2 download (yt-dlp): {video_url}")
             import subprocess
+            output_template = os.path.join(temp_dir, "audio.%(ext)s")
             cmd = [
                 "yt-dlp",
                 "-x",
                 "--audio-format", "mp3",
                 "--output", output_template,
+                "--no-check-certificate",
+                "--prefer-free-formats",
                 video_url
             ]
             
-            # Run yt-dlp
             result = subprocess.run(cmd, capture_output=True, text=True)
+            
+            # Check for file
+            files = [f for f in os.listdir(temp_dir) if f.endswith('.mp3')]
+            if files:
+                final_path = os.path.join(temp_dir, files[0])
+                if os.path.getsize(final_path) > 0:
+                    print(f"✅ Stage 2 SUCCESS: Downloaded {os.path.getsize(final_path)} bytes")
+                    return final_path
             
             if result.returncode != 0:
                 print(f"yt-dlp error: {result.stderr}")
-                raise ValueError(f"yt-dlp failed: {result.stderr}")
-
-            # Verify download
-            if not os.path.exists(final_path) or os.path.getsize(final_path) == 0:
-                # Try finding any mp3 in the temp dir
-                files = [f for f in os.listdir(temp_dir) if f.endswith('.mp3')]
-                if files:
-                    final_path = os.path.join(temp_dir, files[0])
-                else:
-                    raise ValueError("yt-dlp did not produce an audio file.")
-            
-            print(f"Successfully downloaded audio: {os.path.getsize(final_path)} bytes")
-            return final_path
-            
         except Exception as e:
-            print(f"Primary download failed. Error: {e}")
-            # Final fallback: retry with a simpler command if needed, but yt-dlp is usually best
-            raise e
+            print(f"⚠️ Stage 2 Failed (yt-dlp): {e}")
+
+        raise ValueError("Audio download failed. YouTube is blocking the request. Please run the 'YouTube Authentication' cell in the notebook, enter the code, and try again.")
 
     def transcribe_audio(self, audio_path):
         """Transcribe audio to text with timestamps using Whisper (Native)."""

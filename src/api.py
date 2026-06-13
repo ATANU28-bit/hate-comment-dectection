@@ -57,9 +57,10 @@ def get_translator():
     if translator is None:
         print("\n--- [INIT] Loading Multilingual-to-English translator (one-time) ---")
         try:
-            # We use Helsinki-NLP for robust multilingual-to-english translation
-            translator = pipeline("translation", model="Helsinki-NLP/opus-mt-mul-en", device=(0 if torch.cuda.is_available() else -1))
-            print("--- [SUCCESS] Translator model localed of GPU/CPU. ---\n")
+            # Task name for these models is often 'translation' or 'text2text-generation'
+            # 'text2text-generation' is the most compatible name in current transformers versions
+            translator = pipeline("text2text-generation", model="Helsinki-NLP/opus-mt-mul-en", device=(0 if torch.cuda.is_available() else -1))
+            print("--- [SUCCESS] Translator model loaded on GPU/CPU. ---\n")
         except Exception as e:
             print(f"--- [ERROR] Translator failed to load: {e}. Translation will be skipped. ---")
             translator = False # Prevent retrying every time
