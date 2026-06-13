@@ -20,9 +20,11 @@ class YouTubeService:
 
     def _load_transcriber(self):
         if self.transcriber is None:
-            # Using 'small' model for better accuracy in complex speech/Hindi
-            print("Loading Whisper 'small' for YouTube speech analysis...")
-            self.transcriber = whisper.load_model("small")
+            # Check for GPU
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+            print(f"Loading Whisper 'small' for YouTube speech analysis on {device}...")
+            # Optimization: Load on GPU if possible
+            self.transcriber = whisper.load_model("small", device=device)
 
     def get_video_id(self, url):
         """Extract video ID from YouTube URL."""

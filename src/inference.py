@@ -7,14 +7,21 @@ class HateCommentClassifier:
     def __init__(self, model_name="unitary/multilingual-toxic-xlm-roberta"):
         print(f"Loading Multimodal Toxicity Model ({model_name})...")
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        print(f"Using device: {self.device}")
         
         try:
             # Use the high-performance multilingual model as primary
             self.tokenizer = AutoTokenizer.from_pretrained(model_name)
             self.model = AutoModelForSequenceClassification.from_pretrained(model_name)
+            
+            # Optimization: Use half-precision on GPU to save memory and speed up inference
+            if self.device.type == "cuda":
+                print("Optimizing model for GPU (FP16)...")
+                self.model = self.model.half()
+            
             self.labels = ["toxic", "severe_toxic", "obscene", "threat", "insult", "identity_hate"]
-            self.fallback_mode = True # Use the sigmoid/multi-label logic
-            print(f"Multilingual model loaded on {self.device}.")
+            self.fallback_mode = True 
+            print(f"Multilingual model loaded. (Note: Large models may take 2-3 mins to download on first run)")
         except Exception as e:
             print(f"Error loading multilingual model: {e}. Falling back to default...")
             # Fallback to a simpler model if needed

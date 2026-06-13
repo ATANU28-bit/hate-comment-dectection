@@ -14,8 +14,9 @@ class AudioService:
 
     def _load_model(self):
         if self.model is None:
-            print(f"Loading Whisper model: {self.model_name} (Multilingual)...")
-            self.model = whisper.load_model(self.model_name)
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+            print(f"Loading Whisper model: {self.model_name} (Multilingual/GPURready) on {device}...")
+            self.model = whisper.load_model(self.model_name, device=device)
             print("Whisper model loaded.")
 
     def extract_audio(self, video_path):
