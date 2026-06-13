@@ -11,6 +11,8 @@ import numpy as np
 from transformers import pipeline
 import os
 import tempfile
+import whisper
+
 class YouTubeService:
     def __init__(self):
         self.downloader = YoutubeCommentDownloader()
@@ -18,12 +20,9 @@ class YouTubeService:
 
     def _load_transcriber(self):
         if self.transcriber is None:
-            # Using 'base' instead of 'tiny' for better accuracy in languages like Hindi
-            self.transcriber = pipeline(
-                "automatic-speech-recognition", 
-                model="openai/whisper-base", 
-                chunk_length_s=30,
-            )
+            # Using 'small' model for better accuracy in complex speech/Hindi
+            print("Loading Whisper 'small' for YouTube speech analysis...")
+            self.transcriber = whisper.load_model("small")
 
     def get_video_id(self, url):
         """Extract video ID from YouTube URL."""
@@ -92,38 +91,31 @@ class YouTubeService:
 
     def transcribe_audio(self, audio_path):
         """Transcribe audio to text with timestamps using Whisper (Native)."""
-        temp_dir = tempfile.mkdtemp()
-        wav_path = os.path.join(temp_dir, "temp_audio.wav")
         try:
             self._load_transcriber()
             
-            # Use moviepy to safely extract to wav format acceptable by scipy
-            clip = AudioFileClip(audio_path)
-            clip.write_audiofile(wav_path, codec='pcm_s16le', fps=16000, logger=None)
-            clip.close()
+            print(f"Transcribing YouTube audio: {audio_path}")
+            # Use native whisper model transcription
+            result = self.transcriber.transcribe(audio_path)
             
-            # Read via scipy
-            sample_rate, data = wavfile.read(wav_path)
-            if len(data.shape) > 1:
-                data = data.mean(axis=1) # stereo to mono
-                
-            # Normalize to float32 between -1 and 1
-            data = data.astype(np.float32) / 32768.0
+            # Convert whisper segments to the format expected by our API
+            chunks = []
+            for segment in result.get('segments', []):
+                chunks.append({
+                    'text': segment['text'],
+                    'timestamp': (segment['start'], segment['end'])
+                })
             
-            # ANALYSIS CHANGE: Removed task="translate" to catch multilingual threats in native speech
-            result = self.transcriber(
-                data, 
-                return_timestamps=True
-            )
-            
-            return result.get('chunks', [])
+            return chunks
         except Exception as e:
             print(f"Error in transcription: {e}")
             return []
         finally:
-            if os.path.exists(temp_dir):
-                import shutil
-                shutil.rmtree(temp_dir)
+            if os.path.exists(audio_path):
+                try:
+                    os.remove(audio_path)
+                except:
+                    pass
 
     def extract_video_content(self, video_url):
         """Extract audio and transcribe text with timestamps from a YouTube video."""
