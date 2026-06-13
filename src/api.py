@@ -111,10 +111,6 @@ class AnalyzeResponse(BaseModel):
     safe_count: int
     analysis: List[AnalysisItem]
 
-@app.get("/")
-def read_root():
-    return {"message": "HateGuard API is active."}
-
 @app.get("/health")
 def health_check():
     return {"status": "healthy", "model_loaded": model is not None}
