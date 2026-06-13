@@ -86,6 +86,12 @@ class YouTubeService:
                 raise ValueError("No audio stream available for this video.")
                 
             audio_stream.download(filename=output_path)
+            
+            # Verify download
+            if not os.path.exists(output_path) or os.path.getsize(output_path) == 0:
+                raise ValueError("Downloaded audio file is empty or missing.")
+            
+            print(f"Successfully downloaded audio: {os.path.getsize(output_path)} bytes")
             return output_path
         except Exception as e:
             print(f"Error downloading audio: {e}")

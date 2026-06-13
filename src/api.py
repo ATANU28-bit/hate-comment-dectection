@@ -134,8 +134,11 @@ def analyze_video(request: AnalyzeVideoRequest):
         print("[Step 2/4] Extracting and Transcribing Video Audio (this may take 1-3 mins)...")
         try:
             audio_chunks_raw = yt.extract_video_content(request.url)
+            print(f"DEBUG: Successfully extracted {len(audio_chunks_raw)} speech segments.")
         except Exception as e:
-            print(f"Warning: Audio transcription failed: {e}")
+            print(f"CRITICAL: Audio transcription failed. Error: {e}")
+            import traceback
+            traceback.print_exc()
             audio_chunks_raw = []
 
         # 3. Combine for batch processing
