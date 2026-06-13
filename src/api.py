@@ -83,7 +83,7 @@ class PredictResponse(BaseModel):
 
 class AnalyzeVideoRequest(BaseModel):
     url: str
-    limit: Optional[int] = 50
+    limit: Optional[int] = 100
 
 class AnalysisItem(BaseModel):
     text: str

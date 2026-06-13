@@ -43,9 +43,13 @@ class HateCommentClassifier:
             # Multilingual model uses sigmoid for multi-label classification
             probs = torch.sigmoid(scores).cpu().numpy()[0]
             
-            # If any toxicity label is > 0.5, classify as Abusive
+            # Identify the specific toxicity types
+            tox_types = {self.labels[i]: float(probs[i]) for i in range(len(probs))}
+            
+            # Higher sensitivity: If ANY toxicity label is > 0.4, classify as Abusive
+            # We use 0.4 instead of 0.5 to catch more subtle or borderline cases in speech
             max_tox_prob = float(np.max(probs))
-            is_toxic = max_tox_prob > 0.5
+            is_toxic = max_tox_prob > 0.4
             
             label = "Abusive" if is_toxic else "Not Abusive"
             confidence = max_tox_prob if is_toxic else (1.0 - max_tox_prob)
@@ -56,7 +60,8 @@ class HateCommentClassifier:
                 "probabilities": {
                     "Abusive": max_tox_prob,
                     "Not Abusive": 1.0 - max_tox_prob,
-                    "Neither": 0.0
+                    "Neither": 0.0,
+                    "details": tox_types
                 }
             }
         else:
@@ -89,7 +94,7 @@ class HateCommentClassifier:
                 probs = torch.sigmoid(scores).cpu().numpy()
                 for j in range(len(batch_texts)):
                     max_tox_prob = float(np.max(probs[j]))
-                    is_toxic = max_tox_prob > 0.5
+                    is_toxic = max_tox_prob > 0.4
                     label = "Abusive" if is_toxic else "Not Abusive"
                     confidence = max_tox_prob if is_toxic else (1.0 - max_tox_prob)
                     results.append({

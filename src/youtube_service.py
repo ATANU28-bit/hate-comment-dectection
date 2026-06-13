@@ -47,8 +47,7 @@ class YouTubeService:
         
         comments = []
         try:
-            # Attempt to fetch comments. Removing sort_by often fixes "Failed to set sorting" errors
-            # caused by changes in YouTube's internal layout.
+            # Try fetching without specifics first (defaults to POPULAR usually)
             generator = self.downloader.get_comments(video_id)
             for i, comment in enumerate(generator):
                 if i >= limit:
@@ -59,10 +58,15 @@ class YouTubeService:
                     "likes": comment.get('votes', 0),
                     "time": comment.get('time', '')
                 })
+            
+            # If still empty, try fallback or just log
+            if not comments:
+                print(f"Warning: No comments returned by downloader for {video_id}")
+                
         except Exception as e:
             print(f"Error fetching comments: {e}")
-            # If fetching fails, return empty or raise
-            raise e
+            # Do not raise if audio transcription might still work
+            # Just return empty list so the process can continue
             
         return comments
 
@@ -72,8 +76,8 @@ class YouTubeService:
         output_path = os.path.join(temp_dir, "audio.mp3")
         try:
             # Enabling OAuth is the most reliable way to bypass bot detection.
-            # The first time this runs, check the logs for a code to enter at google.com/device
             print(f"Attempting to download audio for {video_url} using OAuth...")
+            # Use 'small' model logic internally if possible or base
             video = YouTube(video_url, use_oauth=True, allow_oauth_cache=True)
             audio_stream = video.streams.filter(only_audio=True).first()
             
@@ -87,7 +91,7 @@ class YouTubeService:
             raise e
 
     def transcribe_audio(self, audio_path):
-        """Transcribe audio to text with timestamps using Whisper."""
+        """Transcribe audio to text with timestamps using Whisper (Native)."""
         temp_dir = tempfile.mkdtemp()
         wav_path = os.path.join(temp_dir, "temp_audio.wav")
         try:
@@ -106,12 +110,10 @@ class YouTubeService:
             # Normalize to float32 between -1 and 1
             data = data.astype(np.float32) / 32768.0
             
-            # Transcribe and translate with whisper pipeline
-            # language='en' with task='translate' ensures consistent English output
+            # ANALYSIS CHANGE: Removed task="translate" to catch multilingual threats in native speech
             result = self.transcriber(
                 data, 
-                return_timestamps=True, 
-                generate_kwargs={"task": "translate", "language": "en"}
+                return_timestamps=True
             )
             
             return result.get('chunks', [])
