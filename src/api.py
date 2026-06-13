@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import List, Optional
 import os
@@ -269,6 +270,11 @@ async def analyze_file(file: UploadFile = File(...)):
     finally:
         if os.path.exists(temp_dir):
             shutil.rmtree(temp_dir)
+
+# Mount the pre-built UI if it exists
+if os.path.exists("ui/dist"):
+    print("Mounting pre-built UI from ui/dist")
+    app.mount("/", StaticFiles(directory="ui/dist", html=True), name="ui")
 
 if __name__ == "__main__":
     uvicorn.run("src.api:app", host="0.0.0.0", port=8000, reload=True)

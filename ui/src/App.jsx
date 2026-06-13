@@ -13,9 +13,8 @@ function App() {
   const getApiUrl = () => {
     const host = window.location.hostname;
     const isColab = host.includes('colab.dev') || host.includes('googleusercontent.com');
-    return isColab 
-      ? window.location.origin.replace('5173', '8000') 
-      : (import.meta.env.VITE_API_URL || 'http://localhost:8000');
+    // If in Colab, use the current origin (since backend and frontend are on the same port now)
+    return isColab ? window.location.origin : (import.meta.env.VITE_API_URL || 'http://localhost:8000');
   };
 
   const handleAnalyze = async (url) => {
