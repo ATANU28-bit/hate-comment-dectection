@@ -72,29 +72,45 @@ class YouTubeService:
         return comments
 
     def download_audio(self, video_url):
-        """Download audio from a YouTube video with OAuth bypass."""
+        """Download audio from a YouTube video using yt-dlp (more robust than pytube)."""
         temp_dir = tempfile.mkdtemp()
-        output_path = os.path.join(temp_dir, "audio.mp3")
+        output_template = os.path.join(temp_dir, "audio.%(ext)s")
+        final_path = os.path.join(temp_dir, "audio.mp3")
+        
         try:
-            # Enabling OAuth is the most reliable way to bypass bot detection.
-            print(f"Attempting to download audio for {video_url} using OAuth...")
-            # Use 'small' model logic internally if possible or base
-            video = YouTube(video_url, use_oauth=True, allow_oauth_cache=True)
-            audio_stream = video.streams.filter(only_audio=True).first()
+            print(f"Attempting to download audio using yt-dlp: {video_url}")
+            # Simplified yt-dlp command to extract best audio
+            import subprocess
+            cmd = [
+                "yt-dlp",
+                "-x",
+                "--audio-format", "mp3",
+                "--output", output_template,
+                video_url
+            ]
             
-            if not audio_stream:
-                raise ValueError("No audio stream available for this video.")
-                
-            audio_stream.download(filename=output_path)
+            # Run yt-dlp
+            result = subprocess.run(cmd, capture_output=True, text=True)
             
+            if result.returncode != 0:
+                print(f"yt-dlp error: {result.stderr}")
+                raise ValueError(f"yt-dlp failed: {result.stderr}")
+
             # Verify download
-            if not os.path.exists(output_path) or os.path.getsize(output_path) == 0:
-                raise ValueError("Downloaded audio file is empty or missing.")
+            if not os.path.exists(final_path) or os.path.getsize(final_path) == 0:
+                # Try finding any mp3 in the temp dir
+                files = [f for f in os.listdir(temp_dir) if f.endswith('.mp3')]
+                if files:
+                    final_path = os.path.join(temp_dir, files[0])
+                else:
+                    raise ValueError("yt-dlp did not produce an audio file.")
             
-            print(f"Successfully downloaded audio: {os.path.getsize(output_path)} bytes")
-            return output_path
+            print(f"Successfully downloaded audio: {os.path.getsize(final_path)} bytes")
+            return final_path
+            
         except Exception as e:
-            print(f"Error downloading audio: {e}")
+            print(f"Primary download failed. Error: {e}")
+            # Final fallback: retry with a simpler command if needed, but yt-dlp is usually best
             raise e
 
     def transcribe_audio(self, audio_path):

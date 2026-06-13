@@ -53,8 +53,14 @@ def get_audio_service():
 def get_translator():
     global translator
     if translator is None:
-        print("Loading Multilingual-to-English translator...")
-        translator = pipeline("translation", model="Helsinki-NLP/opus-mt-mul-en")
+        print("\n--- [INIT] Loading Multilingual-to-English translator (one-time) ---")
+        try:
+            # We use Helsinki-NLP for robust multilingual-to-english translation
+            translator = pipeline("translation", model="Helsinki-NLP/opus-mt-mul-en", device=(0 if torch.cuda.is_available() else -1))
+            print("--- [SUCCESS] Translator model localed of GPU/CPU. ---\n")
+        except Exception as e:
+            print(f"--- [ERROR] Translator failed to load: {e}. Translation will be skipped. ---")
+            translator = False # Prevent retrying every time
     return translator
 
 def translate_if_needed(text):
@@ -65,13 +71,13 @@ def translate_if_needed(text):
     # Only translate if clearly not English and long enough to be a sentence
     if any(ord(char) > 127 for char in text) and len(text) > 10:
         try:
-            # We keep this as an option for UI display, but detection is done on original text
             trans = get_translator()
-            result = trans(text, max_length=128)
-            return f"{text} (EN: {result[0]['translation_text']})"
-        except Exception as e:
+            if trans: # Only try if translator loaded successfully
+                result = trans(text, max_length=128)
+                return f"{text} (EN: {result[0]['translation_text']})"
             return text
-    return text
+        except Exception:
+            return text
 
 class PredictRequest(BaseModel):
     text: str
