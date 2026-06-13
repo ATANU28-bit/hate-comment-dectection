@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Hate Comment Detection - Statistical Analysis Report</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; background-color: white; padding: 30px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        h1 { color: #2c3e50; border-bottom: 3px solid #3498db; padding-bottom: 10px; }
+        h2 { color: #34495e; margin-top: 30px; border-left: 4px solid #e74c3c; padding-left: 10px; }
+        .section { margin: 20px 0; padding: 15px; background-color: #f8f9fa; border-radius: 5px; }
+        table { border-collapse: collapse; width: 100%; margin: 15px 0; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        th { background-color: #3498db; color: white; }
+        tr:nth-child(even) { background-color: #f2f2f2; }
+        .stat-box { display: inline-block; margin: 10px 20px 10px 0; padding: 15px; background-color: #ecf0f1; border-radius: 5px; border-left: 4px solid #3498db; }
+        .stat-value { font-size: 24px; font-weight: bold; color: #2c3e50; }
+        .stat-label { font-size: 12px; color: #7f8c8d; }
+        img { max-width: 100%; height: auto; margin: 20px 0; border: 1px solid #ddd; border-radius: 5px; }
+        .warning { background-color: #fff3cd; border: 1px solid #ffc107; padding: 10px; border-radius: 5px; margin: 10px 0; }
+        .success { background-color: #d4edda; border: 1px solid #28a745; padding: 10px; border-radius: 5px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 Hate Comment Detection - Statistical Analysis Report</h1>
+        <p><strong>Dataset:</strong> data/processed/train.csv</p>
+        <p><strong>Generated:</strong> 2025-12-11 19:03:40</p>
+        
+        <h2>1. Dataset Overview</h2>
+        <div class="section">
+            <div class="stat-box">
+                <div class="stat-label">Total Samples</div>
+                <div class="stat-value">46,036</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">Classes</div>
+                <div class="stat-value">3</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">Balanced</div>
+                <div class="stat-value">✓</div>
+            </div>
+        </div>
+        
+        <h2>2. Class Distribution</h2>
+        <div class="section">
+            <table>
+                <tr>
+                    <th>Class</th>
+                    <th>Label</th>
+                    <th>Count</th>
+                    <th>Percentage</th>
+                </tr>
+                <tr>
+                    <td>Hate Speech</td>
+                    <td>0</td>
+                    <td>15,417</td>
+                    <td>33.49%</td>
+                </tr>
+                <tr>
+                    <td>Offensive Language</td>
+                    <td>1</td>
+                    <td>15,319</td>
+                    <td>33.28%</td>
+                </tr>
+                <tr>
+                    <td>Neither</td>
+                    <td>2</td>
+                    <td>15,300</td>
+                    <td>33.23%</td>
+                </tr>
+            </table>
+            <img src="01_class_distribution.png" alt="Class Distribution">
+        </div>
+        
+        <h2>3. Text Length Statistics</h2>
+        <div class="section">
+            <table>
+                <tr>
+                    <th>Metric</th>
+                    <th>Characters</th>
+                    <th>Words</th>
+                </tr>
+                <tr>
+                    <td>Mean</td>
+                    <td>55.39</td>
+                    <td>9.86</td>
+                </tr>
+                <tr>
+                    <td>Std Dev</td>
+                    <td>29.46</td>
+                    <td>5.13</td>
+                </tr>
+                <tr>
+                    <td>Min</td>
+                    <td>1</td>
+                    <td>1</td>
+                </tr>
+                <tr>
+                    <td>Max</td>
+                    <td>140</td>
+                    <td>48</td>
+                </tr>
+            </table>
+            <img src="02_text_length_distribution.png" alt="Text Length Distribution">
+            <img src="03_per_class_text_length.png" alt="Per-Class Text Length">
+        </div>
+        
+        <h2>4. Token Statistics</h2>
+        <div class="section">
+            <table>
+                <tr>
+                    <th>Metric</th>
+                    <th>Value</th>
+                </tr>
+                <tr>
+                    <td>Mean Tokens</td>
+                    <td>15.28</td>
+                </tr>
+                <tr>
+                    <td>Std Dev</td>
+                    <td>6.94</td>
+                </tr>
+                <tr>
+                    <td>Min Tokens</td>
+                    <td>N/A</td>
+                </tr>
+                <tr>
+                    <td>Max Tokens</td>
+                    <td>N/A</td>
+                </tr>
+            </table>
+        </div>
+        
+        <h2>5. Outlier Detection</h2>
+        <div class="section">
+            <div class="stat-box">
+                <div class="stat-label">Outliers Found</div>
+                <div class="stat-value">0</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">Outlier Percentage</div>
+                <div class="stat-value">0.00%</div>
+            </div>
+            <div class="success">✓ Dataset is clean with minimal outliers</div>
+            <img src="04_outlier_detection.png" alt="Outlier Detection">
+        </div>
+        
+        <h2>6. Summary & Recommendations</h2>
+        <div class="section">
+            <div class="success">
+                <strong>✓ Data Quality:</strong> Dataset is well-balanced and cleaned. Text lengths are reasonable for BERT-based models (max 128 tokens).
+            </div>
+            <div class="success">
+                <strong>✓ Class Balance:</strong> All three classes have equal representation after preprocessing (oversampling applied).
+            </div>
+            <div class="success">
+                <strong>✓ Model Readiness:</strong> Data is ready for training. No significant anomalies detected.
+            </div>
+        </div>
+    </div>
+</body>
+</html>
