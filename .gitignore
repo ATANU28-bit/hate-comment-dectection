@@ -26,8 +26,8 @@ runs/
 
 # Node.js / React UI
 ui/node_modules/
-ui/dist/
-ui/.env
+# ui/dist/ (Commented out to allow pre-built UI in Colab)
+# ui/.env
 ui/.DS_Store
 
 # Logs
