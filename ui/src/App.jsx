@@ -11,7 +11,8 @@ function App() {
   const [uploadProgress, setUploadProgress] = useState(0);
   
   const getApiUrl = () => {
-    const isColab = window.location.hostname.includes('colab.dev');
+    const host = window.location.hostname;
+    const isColab = host.includes('colab.dev') || host.includes('googleusercontent.com');
     return isColab 
       ? window.location.origin.replace('5173', '8000') 
       : (import.meta.env.VITE_API_URL || 'http://localhost:8000');
@@ -33,8 +34,8 @@ function App() {
       setData(response.data);
     } catch (err) {
       console.error(err);
-      const host = window.location.hostname;
-      setError(`Connection Error: Could not reach backend at ${import.meta.env.VITE_API_URL || 'http://localhost:8000'}. Please ensure python -m src.api is running.`);
+      const apiUrl = getApiUrl();
+      setError(`Connection Error: Could not reach backend at ${apiUrl}. Please ensure the server is running.`);
     } finally {
       setIsLoading(false);
     }
