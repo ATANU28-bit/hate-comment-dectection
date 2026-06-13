@@ -9,6 +9,13 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [uploadProgress, setUploadProgress] = useState(0);
+  
+  const getApiUrl = () => {
+    const isColab = window.location.hostname.includes('colab.dev');
+    return isColab 
+      ? window.location.origin.replace('5173', '8000') 
+      : (import.meta.env.VITE_API_URL || 'http://localhost:8000');
+  };
 
   const handleAnalyze = async (url) => {
     setIsLoading(true);
@@ -16,8 +23,8 @@ function App() {
     setData(null);
 
     try {
-      // Priority: env variable > localhost > 127.0.0.1
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      const apiUrl = getApiUrl();
+      console.log("Connecting to API at:", apiUrl);
       
       const response = await axios.post(`${apiUrl}/analyze-video`, {
         url: url,
@@ -46,7 +53,7 @@ function App() {
     formData.append('file', file);
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      const apiUrl = getApiUrl();
       const response = await axios.post(`${apiUrl}/analyze-file`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
         onUploadProgress: (progressEvent) => {
