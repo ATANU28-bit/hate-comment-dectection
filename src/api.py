@@ -6,6 +6,7 @@ import os
 import tempfile
 import shutil
 import uvicorn
+import torch
 from transformers import pipeline
 from src.inference import HateCommentClassifier
 from src.youtube_service import YouTubeService
@@ -68,6 +69,9 @@ def translate_if_needed(text):
     Optional: Translate text to English for display convenience.
     However, our classifier now handles multilingual text natively.
     """
+    if not text or not isinstance(text, str):
+        return ""
+        
     # Only translate if clearly not English and long enough to be a sentence
     if any(ord(char) > 127 for char in text) and len(text) > 10:
         try:
@@ -75,9 +79,9 @@ def translate_if_needed(text):
             if trans: # Only try if translator loaded successfully
                 result = trans(text, max_length=128)
                 return f"{text} (EN: {result[0]['translation_text']})"
-            return text
         except Exception:
-            return text
+            pass
+    return text
 
 class PredictRequest(BaseModel):
     text: str
