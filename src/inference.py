@@ -15,6 +15,26 @@ class HateCommentClassifier:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(f"Using device: {self.device}")
         
+        # Tier 0: Check if local fine-tuned model exists (Best & Fastest)
+        local_model = "models/hate-detection-balanced"
+        if os.path.exists(local_model):
+            try:
+                print(f"Loading local fine-tuned model from {local_model}...")
+                self.tokenizer = AutoTokenizer.from_pretrained(local_model)
+                self.model = AutoModelForSequenceClassification.from_pretrained(local_model)
+                
+                if self.device.type == "cuda":
+                    print("Optimizing local model for GPU (FP16)...")
+                    self.model = self.model.half()
+                    
+                self.id2label = {0: "Abusive", 1: "Not Abusive", 2: "Neither"}
+                self.fallback_mode = False
+                print("Local fine-tuned model loaded successfully.")
+                return
+            except Exception as e:
+                print(f"Warning: Failed to load local model from {local_model}: {e}")
+                print("Falling back to Hugging Face Hub models...")
+        
         # Tier 1: Multilingual Toxic XLM-RoBERTa (Primary - 1.11 GB)
         # Attempt to load from local cache first to avoid download hangs
         try:
@@ -30,30 +50,23 @@ class HateCommentClassifier:
             self.fallback_mode = True 
             print(f"Loaded primary model from local cache successfully.")
         except Exception as e_cache:
-            # If not in cache, decide whether to download it or skip directly to the lightweight fallback
-            is_colab = "COLAB_RELEASE_TAG" in os.environ or os.path.exists("/content")
-            
-            if is_colab:
-                print(f"Primary model {model_name} (1.11 GB) is not in local cache.")
-                print(f"To prevent slow/throttled download hangs in Colab, automatically skipping to the lightweight 268 MB fallback...")
-                self._load_fallback_bert()
-            else:
-                # Outside Colab (local run): try downloading the primary model
-                try:
-                    print(f"Downloading Multimodal Toxicity Model ({model_name})...")
-                    self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-                    self.model = AutoModelForSequenceClassification.from_pretrained(model_name)
+            # If not in cache, try downloading the primary model (with fast parallel download if hf-transfer is installed)
+            try:
+                print(f"Downloading primary model {model_name} (1.11 GB)...")
+                self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+                self.model = AutoModelForSequenceClassification.from_pretrained(model_name)
+                
+                if self.device.type == "cuda":
+                    print("Optimizing model for GPU (FP16)...")
+                    self.model = self.model.half()
                     
-                    if self.device.type == "cuda":
-                        print("Optimizing model for GPU (FP16)...")
-                        self.model = self.model.half()
-                        
-                    self.labels = ["toxic", "severe_toxic", "obscene", "threat", "insult", "identity_hate"]
-                    self.fallback_mode = True 
-                    print(f"Multilingual model downloaded and loaded successfully.")
-                except Exception as e1:
-                    print(f"Warning: Failed to download primary model: {e1}")
-                    self._load_fallback_bert()
+                self.labels = ["toxic", "severe_toxic", "obscene", "threat", "insult", "identity_hate"]
+                self.fallback_mode = True 
+                print(f"Primary model downloaded and loaded successfully.")
+            except Exception as e1:
+                print(f"Warning: Failed to download primary model: {e1}")
+                self._load_fallback_bert()
+
 
     def _load_fallback_bert(self):
         # Tier 2: Lightweight Toxic BERT (Fallback - 268 MB)
