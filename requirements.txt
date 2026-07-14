@@ -17,3 +17,4 @@ openai-whisper
 python-multipart
 yt-dlp
 aiofiles
+hf-transfer

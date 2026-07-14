@@ -1,5 +1,11 @@
-import argparse
 import os
+try:
+    import hf_transfer
+    os.environ["HF_HUB_ENABLE_HF_TRANSFER"] = "1"
+except ImportError:
+    pass
+
+import argparse
 from functools import partial
 
 import numpy as np

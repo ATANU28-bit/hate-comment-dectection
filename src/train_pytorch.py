@@ -11,8 +11,14 @@ Usage:
     # Or train on raw CSV with basic cleaning:
     python src/train_pytorch.py --csv_path "data/archive/labeled_data.csv"
 """
-import argparse
 import os
+try:
+    import hf_transfer
+    os.environ["HF_HUB_ENABLE_HF_TRANSFER"] = "1"
+except ImportError:
+    pass
+
+import argparse
 
 import numpy as np
 import pandas as pd

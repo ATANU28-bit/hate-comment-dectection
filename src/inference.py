@@ -1,3 +1,10 @@
+import os
+try:
+    import hf_transfer
+    os.environ["HF_HUB_ENABLE_HF_TRANSFER"] = "1"
+except ImportError:
+    pass
+
 import torch
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import numpy as np

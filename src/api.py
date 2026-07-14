@@ -1,3 +1,10 @@
+import os
+try:
+    import hf_transfer
+    os.environ["HF_HUB_ENABLE_HF_TRANSFER"] = "1"
+except ImportError:
+    pass
+
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
