@@ -16,55 +16,88 @@ class HateCommentClassifier:
         print(f"Using device: {self.device}")
         
         # Tier 1: Multilingual Toxic XLM-RoBERTa (Primary - 1.11 GB)
+        # Attempt to load from local cache first to avoid download hangs
         try:
-            print(f"Loading Multimodal Toxicity Model ({model_name})...")
-            # Set a timeout so we don't hang forever if the download is extremely throttled
-            self.tokenizer = AutoTokenizer.from_pretrained(model_name, timeout=15)
-            self.model = AutoModelForSequenceClassification.from_pretrained(model_name, timeout=15)
+            print(f"Checking if primary model {model_name} is already cached...")
+            self.tokenizer = AutoTokenizer.from_pretrained(model_name, local_files_only=True)
+            self.model = AutoModelForSequenceClassification.from_pretrained(model_name, local_files_only=True)
             
-            # Optimization: Use half-precision on GPU to save memory and speed up inference
             if self.device.type == "cuda":
                 print("Optimizing model for GPU (FP16)...")
                 self.model = self.model.half()
-            
+                
             self.labels = ["toxic", "severe_toxic", "obscene", "threat", "insult", "identity_hate"]
             self.fallback_mode = True 
-            print(f"Multilingual model loaded successfully. (Note: Large models may take 2-3 mins to download on first run)")
-        except Exception as e1:
-            print(f"Warning: Failed to load primary model {model_name}: {e1}")
+            print(f"Loaded primary model from local cache successfully.")
+        except Exception as e_cache:
+            # If not in cache, decide whether to download it or skip directly to the lightweight fallback
+            is_colab = "COLAB_RELEASE_TAG" in os.environ or os.path.exists("/content")
             
-            # Tier 2: Lightweight Toxic BERT (Fallback - 268 MB)
-            fallback_model = "unitary/toxic-bert"
+            if is_colab:
+                print(f"Primary model {model_name} (1.11 GB) is not in local cache.")
+                print(f"To prevent slow/throttled download hangs in Colab, automatically skipping to the lightweight 268 MB fallback...")
+                self._load_fallback_bert()
+            else:
+                # Outside Colab (local run): try downloading the primary model
+                try:
+                    print(f"Downloading Multimodal Toxicity Model ({model_name})...")
+                    self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+                    self.model = AutoModelForSequenceClassification.from_pretrained(model_name)
+                    
+                    if self.device.type == "cuda":
+                        print("Optimizing model for GPU (FP16)...")
+                        self.model = self.model.half()
+                        
+                    self.labels = ["toxic", "severe_toxic", "obscene", "threat", "insult", "identity_hate"]
+                    self.fallback_mode = True 
+                    print(f"Multilingual model downloaded and loaded successfully.")
+                except Exception as e1:
+                    print(f"Warning: Failed to download primary model: {e1}")
+                    self._load_fallback_bert()
+
+    def _load_fallback_bert(self):
+        # Tier 2: Lightweight Toxic BERT (Fallback - 268 MB)
+        fallback_model = "unitary/toxic-bert"
+        try:
+            print(f"Loading Lightweight Fallback Model ({fallback_model})...")
             try:
-                print(f"Loading Lightweight Fallback Model ({fallback_model})...")
+                # Try cache first
+                self.tokenizer = AutoTokenizer.from_pretrained(fallback_model, local_files_only=True)
+                self.model = AutoModelForSequenceClassification.from_pretrained(fallback_model, local_files_only=True)
+                print("Loaded fallback model from local cache.")
+            except Exception:
+                # Download if not cached
+                print(f"Downloading lightweight fallback model ({fallback_model} - 268 MB)...")
                 self.tokenizer = AutoTokenizer.from_pretrained(fallback_model)
                 self.model = AutoModelForSequenceClassification.from_pretrained(fallback_model)
+                print("Fallback model downloaded successfully.")
                 
-                if self.device.type == "cuda":
-                    print("Optimizing fallback model for GPU (FP16)...")
-                    self.model = self.model.half()
-                    
-                self.labels = ["toxic", "severe_toxic", "obscene", "threat", "insult", "identity_hate"]
-                self.fallback_mode = True
-                print(f"Lightweight fallback model loaded successfully.")
-            except Exception as e2:
-                print(f"Warning: Failed to load fallback model {fallback_model}: {e2}")
+            if self.device.type == "cuda":
+                print("Optimizing fallback model for GPU (FP16)...")
+                self.model = self.model.half()
                 
-                # Tier 3: Local fine-tuned model
-                local_model = "models/hate-detection-balanced"
-                try:
-                    print(f"Loading Local Model ({local_model})...")
-                    self.tokenizer = AutoTokenizer.from_pretrained(local_model)
-                    self.model = AutoModelForSequenceClassification.from_pretrained(local_model)
-                    self.id2label = {0: "Abusive", 1: "Not Abusive", 2: "Neither"}
-                    self.fallback_mode = False
-                    print(f"Local model loaded successfully.")
-                except Exception as e3:
-                    print("Critical: All models failed to load!")
-                    print(f"Tier 1 Error: {e1}")
-                    print(f"Tier 2 Error: {e2}")
-                    print(f"Tier 3 Error: {e3}")
-                    raise e3
+            self.labels = ["toxic", "severe_toxic", "obscene", "threat", "insult", "identity_hate"]
+            self.fallback_mode = True
+            print(f"Lightweight fallback model loaded successfully.")
+        except Exception as e2:
+            print(f"Warning: Failed to load fallback model {fallback_model}: {e2}")
+            self._load_local_model(e2)
+
+    def _load_local_model(self, last_error):
+        # Tier 3: Local fine-tuned model
+        local_model = "models/hate-detection-balanced"
+        try:
+            print(f"Loading Local Model ({local_model})...")
+            self.tokenizer = AutoTokenizer.from_pretrained(local_model)
+            self.model = AutoModelForSequenceClassification.from_pretrained(local_model)
+            self.id2label = {0: "Abusive", 1: "Not Abusive", 2: "Neither"}
+            self.fallback_mode = False
+            print(f"Local model loaded successfully.")
+        except Exception as e3:
+            print("Critical: All models failed to load!")
+            print(f"Last Error: {last_error}")
+            print(f"Local Model Error: {e3}")
+            raise e3
 
         self.model.to(self.device)
         self.model.eval()
