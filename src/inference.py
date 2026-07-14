@@ -22,6 +22,8 @@ class HateCommentClassifier:
                 print(f"Loading local fine-tuned model from {local_model}...")
                 self.tokenizer = AutoTokenizer.from_pretrained(local_model)
                 self.model = AutoModelForSequenceClassification.from_pretrained(local_model)
+                self.model.to(self.device)
+                self.model.eval()
                 
                 if self.device.type == "cuda":
                     print("Optimizing local model for GPU (FP16)...")
@@ -41,6 +43,8 @@ class HateCommentClassifier:
             print(f"Checking if primary model {model_name} is already cached...")
             self.tokenizer = AutoTokenizer.from_pretrained(model_name, local_files_only=True)
             self.model = AutoModelForSequenceClassification.from_pretrained(model_name, local_files_only=True)
+            self.model.to(self.device)
+            self.model.eval()
             
             if self.device.type == "cuda":
                 print("Optimizing model for GPU (FP16)...")
@@ -55,6 +59,8 @@ class HateCommentClassifier:
                 print(f"Downloading primary model {model_name} (1.11 GB)...")
                 self.tokenizer = AutoTokenizer.from_pretrained(model_name)
                 self.model = AutoModelForSequenceClassification.from_pretrained(model_name)
+                self.model.to(self.device)
+                self.model.eval()
                 
                 if self.device.type == "cuda":
                     print("Optimizing model for GPU (FP16)...")
@@ -85,6 +91,9 @@ class HateCommentClassifier:
                 self.model = AutoModelForSequenceClassification.from_pretrained(fallback_model)
                 print("Fallback model downloaded successfully.")
                 
+            self.model.to(self.device)
+            self.model.eval()
+            
             if self.device.type == "cuda":
                 print("Optimizing fallback model for GPU (FP16)...")
                 self.model = self.model.half()
