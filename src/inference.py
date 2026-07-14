@@ -1,4 +1,5 @@
 import os
+os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
 try:
     import hf_transfer
     os.environ["HF_HUB_ENABLE_HF_TRANSFER"] = "1"
