@@ -11,10 +11,14 @@ function App() {
   const [uploadProgress, setUploadProgress] = useState(0);
   
   const getApiUrl = () => {
-    const host = window.location.hostname;
-    const isColab = host.includes('colab.dev') || host.includes('googleusercontent.com');
-    // If in Colab, use the current origin (since backend and frontend are on the same port now)
-    return isColab ? window.location.origin : (import.meta.env.VITE_API_URL || 'http://localhost:8000');
+    const port = window.location.port;
+    // If running in local Vite dev mode (port 5173), point to FastAPI on port 8000
+    if (port === '5173') {
+      return 'http://localhost:8000';
+    }
+    // In all other cases (production build served by FastAPI on localhost, Colab, ngrok, localtunnel, etc.),
+    // the backend is on the same origin.
+    return window.location.origin;
   };
 
   const handleAnalyze = async (url) => {
