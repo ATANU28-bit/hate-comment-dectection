@@ -12,12 +12,12 @@ from src.youtube_service import YouTubeService
 
 class HateCommentClassifier:
     def __init__(self, model_name="unitary/multilingual-toxic-xlm-roberta"):
-        print(f"Loading Multimodal Toxicity Model ({model_name})...")
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(f"Using device: {self.device}")
         
+        # Tier 1: Multilingual Toxic XLM-RoBERTa (Primary - 1.11 GB)
         try:
-            # Use the high-performance multilingual model as primary
+            print(f"Loading Multimodal Toxicity Model ({model_name})...")
             self.tokenizer = AutoTokenizer.from_pretrained(model_name)
             self.model = AutoModelForSequenceClassification.from_pretrained(model_name)
             
@@ -28,19 +28,42 @@ class HateCommentClassifier:
             
             self.labels = ["toxic", "severe_toxic", "obscene", "threat", "insult", "identity_hate"]
             self.fallback_mode = True 
-            print(f"Multilingual model loaded. (Note: Large models may take 2-3 mins to download on first run)")
-        except Exception as e:
-            print(f"Error loading multilingual model: {e}. Falling back to default...")
-            # Fallback to a simpler model if needed
-            model_path = "models/hate-detection-balanced"
+            print(f"Multilingual model loaded successfully. (Note: Large models may take 2-3 mins to download on first run)")
+        except Exception as e1:
+            print(f"Warning: Failed to load primary model {model_name}: {e1}")
+            
+            # Tier 2: Lightweight Toxic BERT (Fallback - 268 MB)
+            fallback_model = "unitary/toxic-bert"
             try:
-                self.tokenizer = AutoTokenizer.from_pretrained(model_path)
-                self.model = AutoModelForSequenceClassification.from_pretrained(model_path)
-                self.id2label = {0: "Abusive", 1: "Not Abusive", 2: "Neither"}
-                self.fallback_mode = False
-            except:
-                print("Critical: No model found. Use 'pip install' and download models.")
-                raise e
+                print(f"Loading Lightweight Fallback Model ({fallback_model})...")
+                self.tokenizer = AutoTokenizer.from_pretrained(fallback_model)
+                self.model = AutoModelForSequenceClassification.from_pretrained(fallback_model)
+                
+                if self.device.type == "cuda":
+                    print("Optimizing fallback model for GPU (FP16)...")
+                    self.model = self.model.half()
+                    
+                self.labels = ["toxic", "severe_toxic", "obscene", "threat", "insult", "identity_hate"]
+                self.fallback_mode = True
+                print(f"Lightweight fallback model loaded successfully.")
+            except Exception as e2:
+                print(f"Warning: Failed to load fallback model {fallback_model}: {e2}")
+                
+                # Tier 3: Local fine-tuned model
+                local_model = "models/hate-detection-balanced"
+                try:
+                    print(f"Loading Local Model ({local_model})...")
+                    self.tokenizer = AutoTokenizer.from_pretrained(local_model)
+                    self.model = AutoModelForSequenceClassification.from_pretrained(local_model)
+                    self.id2label = {0: "Abusive", 1: "Not Abusive", 2: "Neither"}
+                    self.fallback_mode = False
+                    print(f"Local model loaded successfully.")
+                except Exception as e3:
+                    print("Critical: All models failed to load!")
+                    print(f"Tier 1 Error: {e1}")
+                    print(f"Tier 2 Error: {e2}")
+                    print(f"Tier 3 Error: {e3}")
+                    raise e3
 
         self.model.to(self.device)
         self.model.eval()

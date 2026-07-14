@@ -1,5 +1,6 @@
 import os
 import whisper
+import torch
 try:
     import moviepy.editor as mp
 except ImportError:
