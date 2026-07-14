@@ -280,5 +280,16 @@ if os.path.exists("ui/dist"):
     print("Mounting pre-built UI from ui/dist")
     app.mount("/", StaticFiles(directory="ui/dist", html=True), name="ui")
 
+def clear_port(port=8000):
+    import platform
+    import subprocess
+    if platform.system() != "Windows":
+        print(f"Clearing any process occupying port {port}...")
+        try:
+            subprocess.run(f"fuser -k {port}/tcp", shell=True, capture_output=True)
+        except Exception as e:
+            print(f"Failed to clear port: {e}")
+
 if __name__ == "__main__":
+    clear_port(8000)
     uvicorn.run("src.api:app", host="0.0.0.0", port=8000, reload=True)
