@@ -12,7 +12,6 @@ Usage:
     python src/train_pytorch.py --csv_path "data/archive/labeled_data.csv"
 """
 import os
-os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
 try:
     import hf_transfer
     os.environ["HF_HUB_ENABLE_HF_TRANSFER"] = "1"

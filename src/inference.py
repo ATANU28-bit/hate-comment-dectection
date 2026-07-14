@@ -1,5 +1,4 @@
 import os
-os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
 try:
     import hf_transfer
     os.environ["HF_HUB_ENABLE_HF_TRANSFER"] = "1"
@@ -19,8 +18,9 @@ class HateCommentClassifier:
         # Tier 1: Multilingual Toxic XLM-RoBERTa (Primary - 1.11 GB)
         try:
             print(f"Loading Multimodal Toxicity Model ({model_name})...")
-            self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-            self.model = AutoModelForSequenceClassification.from_pretrained(model_name)
+            # Set a timeout so we don't hang forever if the download is extremely throttled
+            self.tokenizer = AutoTokenizer.from_pretrained(model_name, timeout=15)
+            self.model = AutoModelForSequenceClassification.from_pretrained(model_name, timeout=15)
             
             # Optimization: Use half-precision on GPU to save memory and speed up inference
             if self.device.type == "cuda":
